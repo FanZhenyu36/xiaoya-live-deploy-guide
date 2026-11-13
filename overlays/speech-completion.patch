@@ -1,0 +1,61 @@
+diff --git a/src/engine.py b/src/engine.py
+index b5e50e4..2857599 100644
+--- a/src/engine.py
++++ b/src/engine.py
+@@ -2118,15 +2118,14 @@ class Engine:
+                 "depth": len(self._dan_vipq) + len(self._dan_buf)}
+ 
+     async def _llm_collect(self, text: str, record: bool = True) -> list[str]:
+-        """把 text 发给 LLM, 收齐分句后的回答。
++        """把 text 发给 LLM, 收齐完整句子后的回答。
+         record=False: 不写 history —— 用于系统自发的调用(空闲搭话), 否则会污染上下文。"""
+-        sstream = llmmod.SentenceStream()
+-        out: list[str] = []
++        chunks: list[str] = []
+         async for delta in self.llm.stream(text, record=record):
+-            for s in sstream.feed(llmmod.clean_for_speech(delta)):
+-                out.append(s)
+-        out.extend(sstream.flush())
+-        return out
++            chunks.append(delta)
++        # 在收齐后清理，保留跨 delta 的空格；句数限制不应作用到 TTS 短分块。
++        # 旧 extend(flush()) 会将尾句拆成单字，再被 answer_max_sentences 截掉。
++        return llmmod.split_spoken_sentences("".join(chunks))
+ 
+     async def _dan_hold_gates(self) -> bool:
+         """播报前的统一让位。返回 False = 已不该播(会话结束)。
+diff --git a/src/llm.py b/src/llm.py
+index b6ac74b..93c3fc4 100644
+--- a/src/llm.py
++++ b/src/llm.py
+@@ -44,6 +44,17 @@ def clean_for_speech(text: str) -> str:
+     return t.strip()
+ 
+ 
++def split_spoken_sentences(text: str) -> list[str]:
++    """批量回答按完整句子分组，不能把逗号分块或单字尾巴当成句数。"""
++    cleaned = clean_for_speech(text)
++    if not cleaned:
++        return []
++    ends = re.escape(STRONG_ENDS)
++    return [piece.strip() for piece in re.findall(
++        rf'.+?(?:[{ends}]+[”’」』）)\"]*|$)', cleaned, re.S
++    ) if piece.strip()]
++
++
+ class SentenceStream:
+     """增量分句: feed(增量文本) → 本轮凑齐的完整句子列表; flush() 收尾。
+ 
+@@ -119,7 +130,11 @@ def merge_for_tts(pieces: list[str], min_chars: int = 30, first_min: int = 14) -
+             out.append(buf)
+             buf = ""
+     if buf:
+-        out.append(buf)
++        if out and len(buf) < 6:
++            # 一两个字的尾巴也要完整保留，但不值得再单独跑一轮 GPU 合成。
++            out[-1] += buf
++        else:
++            out.append(buf)
+     return out or [""][:0]
+ 
+ 

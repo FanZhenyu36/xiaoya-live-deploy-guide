@@ -514,6 +514,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Stop-S
 | [scripts/wsl](scripts/wsl) | Ubuntu 安装、模型查找、加速启动 |
 | [config](config) | 不含私密数据的模板 |
 | [overlays/silver-studio.patch](overlays/silver-studio.patch) | 工作台界面补丁，基于固定上游提交 |
+| [overlays/speech-completion.patch](overlays/speech-completion.patch) | 防止尾句拆字、回答被截断，合并过短语音尾块 |
 | [VERSIONS.md](VERSIONS.md) | 版本来源与已知工作环境 |
 
 这个公开仓库**不包含模型权重、虚拟环境、真实 Key、登录 token、Cookie、参考音频、人物视频或私人的歌库**。这些不该靠复制整个硬盘来“备份到 GitHub”。

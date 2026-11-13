@@ -2,8 +2,10 @@
 
 这是个人整理的部署教程与界面补丁，不是上游官方发行版。
 
+另附 `overlays/speech-completion.patch`：基于同一上游提交，修正完整句子收集和过短 TTS 尾块；该源码补丁同样采用 AGPL-3.0，修改日期 2026-11-13。
+
 - `overlays/silver-studio.patch` 修改自 [cyber-xiaoya/cyber-xiaoya-live](https://github.com/cyber-xiaoya/cyber-xiaoya-live)，基线 `c0effaf50d2bbf9dcfde8847a853c5c871d9dee4`。源代码采用 AGPL-3.0；许可证全文见本仓库 LICENSE。
-- 变更日期：2026-11-13。改动包括三分区工作台、银白配色、底部控制、统计字幕、事件折叠。上游后端不作修改。
+- 变更日期：2026-11-13。界面补丁包括三分区工作台、银白配色、底部控制、统计字幕、事件折叠；另附上文所述的语音完整性后端修复。
 - 上游作者：天工开帧 / AI少女宇宙计划组，Copyright (C) 2026。上游 NOTICE 原文见下方。
 - OmniVoice 是 k2-fsa 的独立项目（Apache-2.0）；本仓库只提供安装与启动工具，不打包其模型和源码。
 - FlashInfer、PyTorch、douyinLive、DSH、DUIX 及各模型遵循各自许可证。安装器直接从各自官方来源获取；使用前阅读对应许可。
