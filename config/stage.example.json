@@ -1,0 +1,28 @@
+{
+  "_说明": "公开模板，不包含任何真实 Key。安装脚本将生成运行目录里的 config.json。",
+  "bridge": {"host": "127.0.0.1", "port": 8795},
+  "model": "vidu-s2",
+  "vidu": {"host": "api.vidu.cn", "api_key": "", "api_keys": []},
+  "avatar": {"avatar_id": "", "image_uri": ""},
+  "rtc": {"mode": "managed", "managed_provider": "artc", "managed_recording": false},
+  "llm": {
+    "provider": "deepseek",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-flash",
+    "key_file": "",
+    "thinking": "disabled",
+    "system_prompt": "你是一位友好的中文数字人助手。自然交流，每次简短回应一到两句话。",
+    "history_turns": 15,
+    "max_tokens": 600,
+    "fallback_models": []
+  },
+  "tts": {
+    "engine": "omnivoice", "provider": "omnivoice", "voice": "my_voice",
+    "omnivoice_base": "http://127.0.0.1:9877", "omnivoice_timeout_sec": 120,
+    "voices_dir": "", "files_dir": "", "song_dirs": [], "song_files": [],
+    "health": {"enabled": false}
+  },
+  "action": {"enabled": true, "library_id": "0", "action_gap_s": 2, "same_action_gap_s": 8},
+  "stats": {"enabled": true, "credits_poll_s": 30},
+  "danmaku": {"read_interval_ms": 3000, "answer_max_sentences": 2}
+}

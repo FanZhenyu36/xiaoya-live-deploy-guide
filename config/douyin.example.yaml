@@ -1,0 +1,27 @@
+port: '1088'
+websocket:
+  path: /ws
+  allowed_origins: []
+unknown: false
+protocol:
+  mode: web
+log:
+  level: info
+sign:
+  provider: local
+tikhub:
+  key: ''
+api:
+  key: ''
+  allowed_domains:
+    - douyin.com
+monitor:
+  poll_interval: 15s
+  notify_interval: 30s
+proxy:
+  url: ''
+  rooms: null
+cookie:
+  use_stored: false
+  douyin: ''
+  rooms: null

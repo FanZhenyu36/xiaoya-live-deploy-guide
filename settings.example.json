@@ -1,0 +1,9 @@
+{
+  "runtime_root": "C:/AI/xiaoya-runtime",
+  "stage_root": "C:/AI/xiaoya-runtime/stage",
+  "wsl_distribution": "Ubuntu-22.04",
+  "wsl_home_project": "~/omnivoice-wsl",
+  "stage_port": 8795,
+  "collector_port": 1088,
+  "room": ""
+}

@@ -1,0 +1,723 @@
+diff --git a/stage/index.html b/stage/index.html
+index 91eb578..13f04be 100644
+--- a/stage/index.html
++++ b/stage/index.html
+@@ -3,7 +3,7 @@
+ <head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+-<title>数字人 · 组件版 S2</title>
++<title>小雅 · 直播工作台</title>
+ <!-- 阿里 ARTC Web SDK(managed_rtc 默认 provider; 客户模式 artc 也用它) -->
+ <script src="https://g.alicdn.com/apsara-media-box/imp-web-rtc/7.1.9/aliyun-rtc-sdk.js"></script>
+ <style>
+@@ -46,13 +46,8 @@ button.ghost{background:transparent}
+ /* 未连线底图: 上一次连线数字人的原始图(纯显示层, 不参与任何连线逻辑; 连线即隐藏) */
+ #avatarStill{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+   background:transparent; user-select:none; pointer-events:none}
+-/* 连线提示条: 全部钉在容器底部(含 创建中/入会中/失败/断线), 上方空间让给底图 */
+-#mask{position:absolute; inset:auto 0 0 0; display:flex; flex-direction:column; gap:10px; align-items:center;
+-  padding:22px 16px 16px; background:linear-gradient(180deg, rgba(8,12,20,0), rgba(8,12,20,.92) 42%);
+-  backdrop-filter:blur(2px); z-index:5}
+-#mask h2{font-size:17px; font-weight:600}
+-#mask .cap{color:var(--dim); font-size:13px; text-align:center; max-width:86%}
+-#mask .maskRow{display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap}
++/* Keep legacy connection status bindings without covering the video. */
++#mask{display:none!important}
+ /* ⏺ 自动录播开关(2026-10-23, 2026-10-23 二次改: 开/关必须有肉眼级差异)
+    关 = 空心灰点 + 描边灰字 + 灰底;开 = 实心红底 + 白字 + 白色实心点 + 呼吸光环。
+    两种状态连"形状"都不同(描边 vs 实心块), 扫一眼就能区分, 不靠猜颜色。 */
+@@ -100,7 +95,12 @@ button.ghost{background:transparent}
+ .tr b{color:var(--acc); font-weight:600}
+ 
+ /* ── 底栏 ── */
+-#bottom{display:flex; gap:8px; align-items:center; padding:10px 16px; border-top:1px solid var(--line)}
++#bottom{display:flex; flex:0 0 auto; flex-wrap:nowrap; gap:8px; align-items:center;
++  padding:10px 16px; border-top:1px solid var(--line); overflow-x:auto; scrollbar-width:thin}
++#connectionControls{display:flex; flex:0 0 auto; align-items:center; gap:6px;
++  padding-right:10px; border-right:1px solid var(--line)}
++#bottom button{flex:0 0 auto; height:36px; padding:6px 10px; font-size:12px; white-space:nowrap}
++#bottom #txt,#bottom #txtCmd{flex:1 0 180px; min-width:180px; height:36px; padding:7px 10px}
+ #txt{flex:1; background:#0d1526; border:1px solid var(--line); color:var(--txt); border-radius:10px;
+   padding:10px 12px; font-size:14px; outline:none}
+ #txt:focus{border-color:#3b82f6}
+@@ -429,87 +429,341 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
+ #statsBar .stbump{ animation:stBump .62s cubic-bezier(.22,1,.36,1); display:inline-block; will-change:transform }
+ #statsBar span[id^="st"]{ transition:color .35s ease }
+ 
++/* Compact, draggable session statistics styled as video subtitles. */
++#statsBar{
++  position:absolute; right:20px; bottom:18px; left:auto; top:auto;
++  z-index:30; width:max-content; max-width:calc(100% - 32px);
++  flex-direction:column; align-items:flex-end; gap:3px;
++  padding:7px 9px; box-sizing:border-box; border:0; border-radius:5px;
++  background:linear-gradient(90deg,transparent,rgba(5,9,16,.28));
++  color:#fff; text-align:right; font:14px/1.55 'Segoe UI','Microsoft YaHei',sans-serif;
++  text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.85);
++  cursor:grab; user-select:none; touch-action:none;
++}
++#statsBar .stats-line{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0 7px; max-width:100%}
++#statsBar .stats-main{font-size:16px; font-weight:500}
++#statsBar .stats-value{font-weight:700; font-variant-numeric:tabular-nums}
++#statsBar .stats-label{color:#e2e9f4}
++#statsBar .stats-sep{color:rgba(255,255,255,.55)}
++#statsBar .stats-details{font-size:10.5px; color:#d0d9e7}
++#statsBar:focus-visible{outline:1px dashed rgba(255,255,255,.65); outline-offset:3px}
++#statsBar.is-dragging{cursor:grabbing; background:rgba(5,9,16,.4)}
++@media(max-width:600px){
++  #statsBar{right:12px; bottom:12px; font-size:12px; gap:2px; padding:5px 7px}
++  #statsBar .stats-main{font-size:14px}
++  #statsBar .stats-details{font-size:10px}
++}
++@media(prefers-reduced-motion:reduce){#statsBar .stbump{animation:none}}
++
++/* Silver Studio: a restrained product interface around the live canvas. */
++:root{
++  color-scheme:light; --bg:#f5f5f7; --panel:#fff; --panel2:#f0f0f3;
++  --line:#e7e7ec; --txt:#1d1d1f; --dim:#86868b; --acc:#0071e3;
++  --ok:#248a55; --warn:#9c6a13; --bad:#d44343;
++}
++body{background:#f5f5f7; color:#1d1d1f;
++  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI','Microsoft YaHei',sans-serif;
++  -webkit-font-smoothing:antialiased}
++button,input,select,textarea{font-family:inherit}
++button{background:#f5f5f7; border:1px solid transparent; color:#424245; border-radius:12px;
++  transition:background .18s,box-shadow .18s,color .18s,transform .18s}
++button:hover{background:#eaeaee; border-color:transparent; color:#1d1d1f}
++button:active{transform:scale(.98)}
++button:focus-visible,[role=button]:focus-visible{outline:3px solid #0071e345; outline-offset:3px}
++button.primary{background:#0071e3; color:#fff; font-weight:500; border:1px solid transparent}
++button.primary:hover{background:#0077ed; box-shadow:0 3px 12px #0071e324}
++button.danger{background:#fff0f0; border-color:#f1d5d5; color:#c83333}
++button.ghost{background:transparent}
++button svg{width:19px;height:19px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;
++  stroke-linecap:round;stroke-linejoin:round}
++#app{padding:24px 28px 0;gap:0}
++#main{padding:0;min-height:0;--rightW:380px}
++#videoWrap{align-self:center;aspect-ratio:16/9;height:auto;max-height:100%;background:#ededf0;
++  border:1px solid #ffffff;border-radius:28px;isolation:isolate;
++  box-shadow:0 12px 48px -24px #20202c30,0 2px 7px #20202c05}
++#videoWrap video,#avatarStill{object-fit:contain}
++#splitter{flex-basis:24px}
++#splitter::before{width:3px;top:43%;bottom:43%;border:0;background:#d5d5db;border-radius:4px}
++#splitter::after{display:none}
++#splitter:hover::before,#main.dragging #splitter::before{width:3px;background:#9b9ba4;box-shadow:none}
++#rightPanel{background:rgba(255,255,255,.94);border:1px solid #e7e7ec;border-radius:28px;min-height:0;
++  box-shadow:0 10px 36px -24px #20202c24;backdrop-filter:blur(20px)}
++#main.is-right-folded #rightPanel,#main.is-right-folded #splitter{display:none}
++#top{flex:none;display:block;padding:27px 24px 15px;border-bottom:0}
++.studio-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
++.brand-mark{display:grid;place-items:center;width:43px;height:43px;border:0;border-radius:14px;
++  background:#f0f5ff;color:#0071e3;flex:none}
++.brand-mark svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
++.brand-copy{flex:1;min-width:0}
++.brand-copy h1{font-size:25px;font-weight:650;line-height:1.3;letter-spacing:-.8px;color:#1d1d1f}
++.brand-copy h1 span{font-size:24px;letter-spacing:-1px;color:#86868b;font-weight:400;margin-left:4px}
++.brand-copy p{font-size:11px;color:#86868b;margin-top:4px;letter-spacing:.1px}
++#btnDrawer{width:32px;height:32px;padding:7px;display:grid;place-items:center;background:#f5f5f7;
++  border:0;border-radius:50%;color:#6e6e73}
++#btnDrawer:hover{background:#e9e9ef;color:#1d1d1f}
++.studio-status{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
++#top .pill{font-size:11px;line-height:1.5;padding:5px 9px;color:#6e6e73;background:#f5f5f7;
++  border:0;border-radius:8px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
++#phasePill::before{content:'';display:inline-block;width:5px;height:5px;margin-right:6px;
++  background:#a1a1a6;border-radius:50%;vertical-align:middle}
++#phasePill.live::before{background:#248a55;box-shadow:none}
++#top .pill.live{color:#24774a;background:#eaf5ee}
++#top .pill.err{color:#c63838;background:#fff0f0}
++#top .pill.busy{color:#966316;background:#fff6e6}
++#voicePill{margin-left:auto;color:#0071e3!important;background:#eff6ff!important;cursor:pointer}
++#speakPill{flex-basis:100%;width:max-content;white-space:nowrap}
++.studio-display-options{display:flex;align-items:center;gap:7px;margin-top:14px}
++.section-caption{font-size:10px;color:#8b8b91;letter-spacing:.4px;font-weight:500}
++.studio-display-options .section-caption{margin-right:auto}
++#top .studio-display-options .pill{font-size:10px;padding:3px 7px;background:transparent;cursor:pointer;color:#86868b}
++#top .studio-display-options .pill:hover{color:#0071e3;background:#f5f8fe}
++.studio-toolbox{padding:1px 20px 17px;flex:none;border-bottom:1px solid #efeff3}
++.studio-toolbox>.section-caption{display:none}
++.studio-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
++.studio-tools button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
++  padding:10px 2px 5px;background:transparent;border:0;font-size:10px;color:#6e6e73;min-width:0;border-radius:14px}
++.studio-tools button svg{width:38px;height:38px;padding:10px;background:#f5f5f7;border-radius:12px;color:#48484c;
++  stroke-width:1.65;box-sizing:border-box;overflow:visible}
++.studio-tools button:hover{background:#f7f9fd;color:#0071e3}
++.studio-tools button:hover svg{background:#eaf3ff;color:#0071e3}
++#rightPanel .head{padding:19px 24px 12px;border:0;color:#1d1d1f;font-size:15px;flex:none;font-weight:600;
++  letter-spacing:-.25px}
++#rightPanel .head small{font-size:10px;color:#a1a1a6;margin-left:8px;font-weight:400;letter-spacing:0}
++.kbd{color:#a1a1a6;font-size:9px;font-weight:400;letter-spacing:0}
++#trList{min-height:80px;padding:2px 20px 18px;gap:17px;scrollbar-width:thin;scrollbar-color:#d7d7de transparent}
++#trList:empty::after{content:'从一句你好开始。\A让对话，自然发生。';display:block;margin:auto;
++  text-align:center;color:#a1a1a6;font-size:13px;line-height:2.2;white-space:pre-line}
++.tr{max-width:94%;border-radius:16px;font-size:13px;line-height:1.8;padding:11px 14px}
++.tr.user{background:#0071e3;color:#fff;border:0;border-bottom-right-radius:5px;box-shadow:0 3px 10px #0071e312}
++.tr.user::before{content:none}
++.tr.dh{background:#f5f5f7;border:0;color:#333336;border-bottom-left-radius:5px}
++.tr.dh b{display:block;margin-bottom:4px;color:#86868b;font-size:10px;font-weight:500;letter-spacing:0}
++.tr.sys,.tr.srv{max-width:100%;width:100%;padding:0 3px;border:0;background:none;color:#a1a1a6;
++  font:10px/1.7 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;white-space:normal;align-self:stretch}
++.tr summary{cursor:pointer;list-style:none;padding:2px 0;overflow-wrap:anywhere;outline-offset:3px}
++.tr summary::-webkit-details-marker{display:none}
++.tr summary::before{content:'›';margin-right:6px;color:#a1a1a6;display:inline-block;transition:transform .15s}
++.tr[open] summary::before{transform:rotate(90deg)}
++.tr .event-details{color:#6e6e73;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;
++  margin-top:5px;border-left:1px solid #d9d9e0;background:#f8f8fa;border-radius:0 8px 8px 0;
++  font:10px/1.8 Consolas,'Microsoft YaHei',monospace}
++.chat-composer{flex:none;padding:14px 18px 16px;border-top:0;background:transparent}
++.chat-input-row{display:flex;align-items:center;gap:8px;padding:6px;background:#f5f5f7;
++  border:1px solid transparent;border-radius:16px;transition:border-color .18s,box-shadow .18s}
++.chat-input-row:focus-within{border-color:#0071e35c;box-shadow:0 0 0 3px #0071e30a;background:#fff}
++#txt{height:37px;padding:6px 9px;width:0;min-width:0;background:transparent;border:0;font-size:12px;
++  border-radius:10px;color:#1d1d1f;flex:1;box-shadow:none}
++#txt::placeholder{color:#a1a1a6}
++#btnSend{padding:8px 12px;min-height:35px;border-radius:11px;font-size:11px}
++.composer-caption{display:flex;justify-content:space-between;margin:8px 6px 0;color:#a1a1a6;font-size:9px;letter-spacing:0}
++/* A separate floating control dock, rather than another full-width panel. */
++#bottom{gap:14px;padding:11px 13px;margin:20px 0 22px;border:1px solid #e3e3e980;border-radius:22px;
++  background:rgba(255,255,255,.86);box-shadow:0 8px 32px -14px #25253520,0 1px 3px #25253505;
++  backdrop-filter:blur(24px) saturate(1.4);overflow-x:auto;scrollbar-color:#d7d7de transparent}
++#bottom button{height:38px;font-size:12px;padding:7px 12px;border-radius:12px;background:#f5f5f7;
++  color:#515154;border:1px solid transparent}
++#bottom button:hover{background:#eaeaee;color:#1d1d1f;border-color:transparent}
++#connectionControls{gap:6px;padding-right:14px;border-color:#e5e5ea}
++#bottom #btnGo{background:#0071e3;border-color:transparent;color:#fff;font-weight:500;min-width:90px;
++  box-shadow:0 3px 10px #0071e31c}
++#bottom #btnGo:hover{background:#0077ed}
++#bottom #btnStop{background:#ffeded;border-color:transparent;color:#c63838}
++#bottom #btnRec{font-size:11px;padding:7px 10px;font-weight:400;color:#6e6e73}
++#bottom #btnRec::before{width:6px;height:6px;border-width:1px;border-color:#9b9ba2;background:transparent}
++#bottom #btnRec.on{background:#d83643;color:#fff;box-shadow:none}
++#bottom #btnRec.on::before{border-color:#fff;background:#fff}
++#bottom #btnRecFetch{font-size:11px;padding:7px 10px;color:#6e6e73}
++.action-composer{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;padding:3px 4px 3px 12px;
++  background:#f5f5f7;border:1px solid transparent;border-radius:13px;height:40px}
++.action-composer:focus-within{background:#fff;border-color:#0071e35c;box-shadow:0 0 0 3px #0071e30a}
++.action-label{font-size:10px;color:#a1a1a6;padding-right:9px;border-right:1px solid #dddde3;flex:none}
++#bottom #txtCmd{background:transparent;border:0;height:31px;padding:4px 0;font-size:11px;min-width:60px;
++  flex:1;width:0;color:#1d1d1f;box-shadow:none}
++#txtCmd::placeholder{color:#a1a1a6}
++#bottom #btnCmdSend{border:0;background:#fff;color:#0071e3;height:30px;padding:4px 10px;border-radius:10px;
++  box-shadow:0 1px 4px #00000008}
++#btnCmdSend span{font-size:14px;margin-left:4px}
++.playback-controls{display:flex;gap:6px;flex:none}
++#bottom #btnItt{background:transparent;color:#6e6e73;font-size:11px}
++#bottom #btnSplitFold{background:transparent;color:#6e6e73;font-size:11px}
++#sessLog{display:none!important}
++#statsBar{font-size:12px;padding:8px 12px;border-radius:12px;background:rgba(25,25,29,.38);
++  border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(12px);text-shadow:0 1px 2px #0004}
++#statsBar .stats-main{font-size:14px;font-weight:400}
++#statsBar .stats-details{font-size:10px;color:#f1f1f3}
++#statsBar .stats-label{color:#fff}
++#statsBar:focus-visible{outline-color:#0071e3}
++/* Existing drawers retain their controls, with the same light material. */
++#drawer,#songs,#cmds,#vpanel,#refs,#koubo,#choreo{background:#fff;border:0;color:#1d1d1f}
++.shead,#drawer .dhead{background:#fff;border-color:#efeff3;font-size:12px;min-height:56px;
++  align-items:center;padding:16px 18px;color:#1d1d1f}
++.shead>span>span{font-size:10px!important;color:#86868b!important}
++.sbar{border-color:#efeff3;padding:12px 18px;flex-wrap:wrap;background:#fff}
++.sect{border:1px solid #ededf1;background:#fff;border-radius:14px;padding:14px}
++.sect h3{color:#1d1d1f;font-size:12px;font-weight:600}
++.sect label{color:#6e6e73;font-size:11px;min-width:68px}
++.sect .hint{color:#86868b;font-size:10px;line-height:1.8}
++input[type=text],input[type=number],textarea,select,#rndEvery,#rndBias,#autoRow select{
++  background:#f5f5f7;color:#333336;border-color:#e7e7ec;border-radius:9px;font-size:12px}
++input[type=text]:focus,input[type=number]:focus,textarea:focus,select:focus{border-color:#0071e370}
++input[type=checkbox]{accent-color:#0071e3}
++#cmdGrid button.chip{background:#f5f5f7;border-color:transparent;color:#515154;border-radius:10px;font-size:11px}
++#cmdGrid button.chip:hover{background:#eff6ff;color:#0071e3;border-color:transparent}
++#cmdGrid button.chip.sent,#cmdGrid button.chip.busy{background:#eaf3ff;color:#0071e3;border-color:#b5d6fa;box-shadow:none}
++#rndBtn{background:#f5f5f7;border-color:#e7e7ec;color:#6e6e73}
++#rndBtn.on,#btnCmdEdit.on{background:#eaf3ff;border-color:#b5d6fa;color:#0071e3;box-shadow:none}
++#voiceList .vrow,.song{background:#f8f8fa;border-color:#e7e7ec;color:#424245}
++#voiceList .vrow:hover,.song:hover{border-color:#9fcaf8;background:#f0f7ff}
++#voiceList .vrow.on{border-color:#95c3f4;background:#eff6ff;box-shadow:none}
++#voiceList .vprev{background:#fff;color:#0071e3;border-color:#dbe6f2}
++#voiceList .vprev:hover{background:#eaf3ff}
++.song.playing{border-color:#75b897;color:#237b51;background:#f0faf5;box-shadow:none}
++.song .del:hover{background:#fff0f0;color:#c83333}
++.song .scr:hover{background:#fff6e8;color:#9c6a13}
++#songGrid .songlib{color:#515154;border-color:#e7e7ec}
++#songGrid .songlib:hover{color:#0071e3}
++#kbText,.kbseg textarea,.kbseg select{background:#f5f5f7;color:#333336;border-color:#e7e7ec}
++#kbMax,#kbGap,#chSteps{background:#f5f5f7!important;color:#333336!important}
++#choreo b{color:#515154!important}
++#choreo>div:has(#chPickChips),#chGroups>div{background:#f8f8fa!important}
++#avList>div{background:#f8f8fa!important}
++.kbseg{background:#fafafb;border-color:#e7e7ec;border-radius:12px}
++.kbseg.playing{border-color:#95c3f4;box-shadow:none;background:#f5f9ff}
++.kbseg button,#kbCmdWrap button.chip{background:#fff;color:#515154;border-color:#e7e7ec}
++.kbseg button:hover,#kbCmdWrap button.chip:hover{background:#eff6ff;color:#0071e3;border-color:#b5d6fa}
++.kbact,#kbCmdWrap h4,#refThumb .hint b{color:#6e6e73}
++#top #rndBadge{color:#0071e3;border-color:#c8def6!important;background:#eff6ff}
++.toast{background:rgba(255,255,255,.96);border-color:#e7e7ec;color:#424245;font-size:12px;
++  border-radius:14px;box-shadow:0 6px 32px #00000010;backdrop-filter:blur(20px)}
++.toast.bad{background:#fff8f8;border-color:#f2d4d4;color:#bf3939}
++#confirmBar .citem{background:#fff;border-color:#e7e7ec;box-shadow:0 8px 30px #00000012;color:#424245}
++#confirmBar .citem b{color:#0071e3}
++#confirmBar .ok{background:#0071e3;color:#fff}
++#confirmBar .no{color:#86868b}
++@media(max-height:760px){
++  #app{padding-top:18px}
++  #top{padding:20px 21px 13px}.studio-brand{margin-bottom:16px}
++  .studio-toolbox{padding:0 17px 14px}.studio-tools button{padding-top:7px}
++  #rightPanel .head{padding-top:16px}
++  #bottom{margin-top:16px;margin-bottom:18px}
++}
++@media(max-width:1050px){
++  #app{padding-left:18px;padding-right:18px}
++  #splitter{flex-basis:18px}#bottom{gap:8px;padding:10px}
++  #connectionControls{gap:4px;padding-right:9px}
++  #bottom button{padding:7px 9px}#bottom #btnGo{min-width:76px}
++  .brand-copy h1{font-size:22px}.brand-copy h1 span{font-size:21px}
++}
++@media(max-width:700px){
++  #app{padding:12px 12px 0}
++  #main{flex-direction:column;gap:12px}
++  #videoWrap{align-self:stretch;aspect-ratio:16/9;flex:none;width:100%;height:auto;min-height:0;border-radius:22px}
++  #rightPanel{flex:1 1 56%;width:100%;min-height:240px;border-radius:22px}
++  #splitter{display:none}
++  #top{padding:12px 15px 9px}.studio-brand{margin-bottom:10px;gap:8px}
++  .brand-mark{width:30px;height:30px;border-radius:10px}.brand-mark svg{width:20px;height:20px}
++  .brand-copy h1,.brand-copy h1 span{font-size:19px}.brand-copy p{display:none}
++  .studio-status{gap:5px}#top .pill{font-size:10px;padding:3px 7px}
++  .studio-display-options{margin-top:8px}
++  .studio-toolbox{padding:0 12px 8px}.studio-tools{gap:5px}
++  .studio-tools button{padding:4px 1px;gap:0;font-size:10px;flex-direction:row}
++  .studio-tools button svg{display:none}
++  #rightPanel .head{padding:8px 15px 5px;font-size:13px}
++  #trList{min-height:40px;padding:4px 13px 10px;gap:10px}
++  .tr{font-size:12px;padding:9px 11px}.chat-composer{padding:8px 12px 10px}.composer-caption{display:none}
++  #bottom{margin:12px 0;padding:8px;border-radius:18px;gap:8px}
++  .action-composer{flex:none;width:220px}
++}
++@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+ </style>
+ </head>
+ <body>
+ <div id="app">
+-  <div id="top">
+-    <span class="logo">数字人 <small>vidu-s2 · 组件版</small></span>
+-    <span class="pill" id="phasePill">未连线</span>
+-    <span class="pill" id="timerPill" style="display:none">0:00</span>
+-    <span class="pill" id="speakPill" style="display:none">她在说话…</span>
+-    <span class="pill" id="voicePill" style="display:none"></span>
+-    <span class="pill" id="rndBadge" style="display:none" title="拟人化随机表演运行中 · 点击停止"></span>
+-    <span class="pill" id="fxPill" style="cursor:pointer" title="画面右侧「当前执行动作」滚动特效 · 点一下开关">🎬 特效 开</span>
+-    <span class="pill" id="statsPill" style="cursor:pointer" title="歌词上方统计条：token / 积分 / 钻石 / 记忆轮数 · 点一下开关">📊 统计 开</span>
+-    <span class="sp"></span>
+-      <button class="ghost" id="btnSplitFold" title="折叠/展开右栏（视频占满整屏）">⤢ 全屏视频</button>
+-    <button class="ghost" id="btnDrawer">⚙ 设置</button>
+-    <button class="danger" id="btnStop" style="display:none">挂断</button>
+-  </div>
+-
+   <div id="main">
+     <div id="videoWrap">
+       <img id="avatarStill" alt="" style="display:none">
+       <video id="video" playsinline autoplay muted></video>
+-      <div id="statsBar" style="display:none; position:absolute; left:22px; top:calc(50% - 372px);
+-     z-index:30; pointer-events:none; flex-direction:column; gap:4px; width:204px">
+-  <div style="background:rgba(6,10,18,.8); border:1px solid rgba(120,150,200,.3); border-left:3px solid #7aa2ff; border-radius:9px; padding:4px 10px; backdrop-filter:blur(6px); font:12px/1.3 'Segoe UI','Microsoft YaHei',sans-serif; color:#cfe0f5">
+-    <div style="font-size:10px; letter-spacing:.08em; margin-bottom:2px; color:#8fb0dc; margin-bottom:3px">本场消耗</div>
+-    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1px"><span style="color:#9fb6d4">Token</span>
+-      <span id="stTokens" style="font-size:16px; font-weight:700; color:#eaf3ff">0</span></div>
+-    <div style="display:flex; justify-content:space-between; align-items:baseline"><span style="color:#9fb6d4">积分</span>
+-      <span id="stCredits" style="font-size:16px; font-weight:700; color:#eaf3ff">0</span></div>
+-    <div id="stCalls" style="font-size:9.5px; color:#7f93ad; text-align:right; margin-top:1px">0 次调用</div>
+-  </div>
+-
+-  <div style="background:rgba(6,10,18,.8); border:1px solid rgba(120,150,200,.3); border-left:3px solid #ffc46b; border-radius:9px; padding:4px 10px; backdrop-filter:blur(6px); font:12px/1.3 'Segoe UI','Microsoft YaHei',sans-serif; color:#cfe0f5">
+-    <div style="font-size:10px; letter-spacing:.08em; margin-bottom:2px; color:#dcb87f; margin-bottom:3px">本场收到</div>
+-    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1px"><span style="color:#9fb6d4">礼物</span>
+-      <span id="stGifts" style="font-size:16px; font-weight:700; color:#fff3e0">0</span></div>
+-    <div style="display:flex; justify-content:space-between; align-items:baseline"><span style="color:#9fb6d4">约钻石</span>
+-      <span id="stDiamonds" style="font-size:16px; font-weight:700; color:#fff3e0">0</span></div>
+-  </div>
+-
+-  <div style="background:rgba(6,10,18,.8); border:1px solid rgba(120,150,200,.3); border-left:3px solid #7de2b0; border-radius:9px; padding:4px 10px; backdrop-filter:blur(6px); font:12px/1.3 'Segoe UI','Microsoft YaHei',sans-serif; color:#cfe0f5">
+-    <div style="font-size:10px; letter-spacing:.08em; margin-bottom:2px; color:#8fd8b8; margin-bottom:3px">本场记忆</div>
+-    <div style="display:flex; justify-content:space-between; align-items:baseline"><span style="color:#9fb6d4">还剩</span>
+-      <span id="stMemory" style="font-size:16px; font-weight:700; color:#eafff6">15/15</span></div>
+-  </div>
+-</div>
+-<div id="lyricBox" style="display:none"></div>
+-  <div id="capOverlay" style="display:none"><div class="capInner"></div></div>
+-      <div id="mask">
+-        <h2>▶ 连线数字人</h2>
+-        <div class="cap" id="maskCap">组件版：Vidu 只做渲染推流，LLM / TTS 全在本机。<br>默认平台托管 RTC 频道，无需自备。</div>
+-        <div class="maskRow">
+-          <button class="primary" id="btnGo" style="font-size:15px; padding:10px 26px">开始连线</button>
+-          <button id="btnRec" title="开播时让 Vidu 服务端录播，播完自动下载到本地（建会话时生效）">⏺ 自动录播：关</button>
+-          <button id="btnRecFetch" title="手动再拉一次服务端录播（自动等待超时 / 没抓到的时候点一下）">↻ 拉取录播</button>
++      <div id="statsBar" style="display:none" role="group" tabindex="0" aria-label="直播统计字幕，可拖动，双击回到右下角">
++        <div class="stats-line stats-main">
++          <span><span class="stats-label">Token </span><span id="stTokens" class="stats-value">0</span></span>
++          <span class="stats-sep" aria-hidden="true">·</span>
++          <span><span class="stats-label">积分 </span><span id="stCredits" class="stats-value">0</span></span>
+         </div>
++        <div class="stats-line">
++          <span><span class="stats-label">礼物 </span><span id="stGifts" class="stats-value">0 份</span></span>
++          <span class="stats-sep" aria-hidden="true">·</span>
++          <span><span class="stats-label">钻石 </span><span id="stDiamonds" class="stats-value">0</span></span>
++          <span class="stats-sep" aria-hidden="true">·</span>
++          <span><span class="stats-label">记忆 </span><span id="stMemory" class="stats-value">15/15 轮</span></span>
++        </div>
++        <div id="stCalls" class="stats-details">0 次调用</div>
+       </div>
++<div id="lyricBox" style="display:none"></div>
++  <div id="capOverlay" style="display:none"><div class="capInner"></div></div>
+       <div id="sessLog"></div>
+       <div id="cmdFx"></div>
+       <div id="soundHint">🔇 点击画面开启声音</div>
+     </div>
+       <div id="splitter" title="拖动调整右栏宽度 · 双击复位（420px）"></div>
+     <div id="rightPanel">
+-      <div class="head"><span>字幕 / 事件</span><span class="kbd">Enter 发送 · Esc 关抽屉</span></div>
++      <div id="top">
++        <div class="studio-brand">
++          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28"><path d="M5 12v4M11 7v14M17 4v20M23 10v8"/></svg></span>
++          <div class="brand-copy"><h1>小雅 <span>Studio</span></h1><p>让对话，自然发生。</p></div>
++          <button class="ghost" id="btnDrawer" title="打开设置" aria-label="设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1Z"/><circle cx="12" cy="12" r="3"/></svg></button>
++        </div>
++        <div class="studio-status">
++          <span class="pill" id="phasePill">未连线</span>
++          <span class="pill" id="timerPill" style="display:none">0:00</span>
++          <span class="pill" id="voicePill" style="display:none" role="button" tabindex="0" aria-label="切换音色"></span>
++          <span class="pill" id="speakPill" style="display:none">她在说话…</span>
++          <span class="pill" id="rndBadge" style="display:none" title="拟人化随机表演运行中 · 点击停止"></span>
++        </div>
++        <div class="studio-display-options">
++          <span class="section-caption">画面显示</span>
++          <span class="pill" id="fxPill" role="button" tabindex="0" title="开关动作特效">特效 · 开</span>
++          <span class="pill" id="statsPill" role="button" tabindex="0" title="开关右下角统计字幕；可拖动，双击复位">统计 · 开</span>
++        </div>
++      </div>
++      <div class="studio-toolbox">
++        <div class="section-caption">工作台工具</div>
++        <div class="studio-tools">
++          <button id="btnSongs" title="歌曲与音频点播"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2.5"/><ellipse cx="17" cy="16" rx="3" ry="2.5"/></svg><span>点播歌单</span></button>
++          <button id="btnCmds" title="动作与快捷指令"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 10-13h-8Z"/></svg><span>快捷指令</span></button>
++          <button id="btnRefs" title="参考图、服装与背景"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-5 5 6"/></svg><span>参考图</span></button>
++          <button id="btnKoubo" title="口播稿、合成与连播"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>口播工作台</span></button>
++        </div>
++      </div>
++      <div class="head"><span>对话 <small>字幕与事件</small></span><span class="kbd">实时同步</span></div>
+       <div id="trList"></div>
++      <div class="chat-composer">
++        <div class="chat-input-row">
++          <input id="txt" placeholder="和小雅说点什么…" aria-label="聊天内容" autocomplete="off">
++          <button class="primary" id="btnSend" title="发送消息">发送</button>
++        </div>
++        <div class="composer-caption"><span>文字互动</span><span>Enter 发送</span></div>
++      </div>
+     </div>
+   </div>
+ 
+   <div id="bottom">
+-    <input id="txt" placeholder="打字跟她聊…（发送即驱动：type9 → LLM → TTS → 喂流）" autocomplete="off">
+-    <button class="primary" id="btnSend">发送</button>
+-    <input id="txtCmd" placeholder="直发 Vidu 做动作…（不经 LLM，她默默执行）" autocomplete="off">
+-    <button class="cmdsend" id="btnCmdSend" title="直发 type9：Vidu 直接做动作，不经 LLM/TTS，她不出声">🎬 直发</button>
+-    <button id="btnItt" title="打断当前播报(type7)">🔇 打断</button>
+-    <button id="btnSongs" title="点播歌单：歌曲/音频，点击即播">🎵 点播歌单</button>
+-    <button id="btnCmds" title="快捷指令：点击=打字发送，指挥她做动作">🕹 快捷指令</button>
+-    <button id="btnRefs" title="参考图：换装 / 拿起指定商品 / 换背景（会话内生效，不额外计费）">🖼 参考图</button>
+-        <button id="btnKoubo" title="口播工作台：长文切分 / 分段合成 / 顺序连播">📝 口播</button>
++    <div id="connectionControls" role="group" aria-label="连线与录播控制">
++      <button class="primary" id="btnGo" title="连接数字人，开始互动">开始连线</button>
++      <button class="danger" id="btnStop" style="display:none">挂断</button>
++      <button id="btnRec" title="开播时让 Vidu 服务端录播，播完自动下载到本地（建会话时生效）">⏺ 自动录播：关</button>
++      <button id="btnRecFetch" title="手动再拉一次服务端录播（自动等待超时 / 没抓到的时候点一下）">↻ 拉取录播</button>
++    </div>
++    <div class="action-composer">
++      <span class="action-label">动作</span>
++      <input id="txtCmd" placeholder="让她做个动作…" aria-label="动作指令" autocomplete="off">
++      <button class="cmdsend" id="btnCmdSend" title="发送动作指令">执行 <span aria-hidden="true">↗</span></button>
++    </div>
++    <div class="playback-controls">
++      <button id="btnItt" title="打断当前播报">打断播报</button>
++      <button class="ghost" id="btnSplitFold" title="折叠或展开右侧功能区">⤢ 全屏视频</button>
++    </div>
+   </div>
++  <div id="mask" hidden><span id="maskCap"></span></div>
+ </div>
+ 
+ <div id="vpanel">
+@@ -836,6 +1090,13 @@ window.addEventListener("unhandledrejection", e => {
+ const state = {liveId:null, rtc:null, joined:false, engine:null, rtcKind:"", since:0,
+                pollTimer:null, timerTimer:null, startedAt:0, phase:"idle"};
+ 
++// Reuse the original click handlers for keyboard access to sidebar pills.
++["voicePill", "fxPill", "statsPill"].forEach(id=>{
++  $(id).addEventListener("keydown", ev=>{
++    if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); $(id).click(); }
++  });
++});
++
+ function toast(msg, bad){
+   const d = document.createElement("div");
+   d.className = "toast" + (bad ? " bad" : "");
+@@ -853,12 +1114,22 @@ function trAdd(role, text, key){
+   if (key != null){ if (trAdd._seen === undefined) trAdd._seen = new Set();
+     if (trAdd._seen.size > 8000) trAdd._seen.clear();   // 长跑防膨胀(2026-10-13): 纯去重缓存, 清掉最多重画一条
+     if (trAdd._seen.has(key)) return; trAdd._seen.add(key); }
+-  const d = document.createElement("div");
++  const eventRow = role === "sys" || role === "srv";
++  const d = document.createElement(eventRow ? "details" : "div");
+   d.className = "tr " + role;
+   // 弹幕行已经自带【弹幕】前缀, 不要再套 "我 " (会读成"我 【弹幕】xxx", 也别扭)
+-  if (role === "user" && !text.startsWith("【弹幕")){ d.textContent = "我 " + text; }
++  if (eventRow){
++    const summary = document.createElement("summary");
++    const concise = String(text || "").replace(/\b(?:live_id|uid|channel_id|room_id)=\S+/gi, "")
++      .replace(/\b\d{12,}\b/g, "").replace(/\s+/g, " ").trim();
++    summary.textContent = role === "srv" ? "音视频状态更新" : (concise.slice(0, 46) || "会话事件");
++    const detail = document.createElement("div");
++    detail.className = "event-details"; detail.textContent = text;
++    d.append(summary, detail);
++  }
++  else if (role === "user" && !text.startsWith("【弹幕")){ d.textContent = text; }
+   else if (role === "dh"){
+-    const b = document.createElement("b"); b.textContent = "她 ";
++    const b = document.createElement("b"); b.textContent = "小雅";
+     d.append(b, document.createTextNode(text));
+   } else { d.textContent = text; }
+   const list = $("trList");
+@@ -1069,6 +1340,7 @@ async function start(){
+   if (state.busy) return;
+   state.busy = true;
+   $("btnGo").disabled = true;
++  $("btnGo").textContent = "连线中…";
+   $("maskCap").textContent = "正在创建会话…";
+   try{
+     const res = await api("/api/live/start", {method:"POST", body:JSON.stringify({})});
+@@ -1084,6 +1356,8 @@ async function start(){
+     toast("连线失败: " + (e.message||e), true);
+   }finally{
+     state.busy = false;
++    $("btnGo").disabled = !!state.joined;
++    $("btnGo").textContent = state.joined ? "已连线" : "开始连线";
+   }
+ }
+ 
+@@ -1232,7 +1506,7 @@ let FX_ON = (_fxq === "0") ? false : ((_fxq === "1") ? true : (localStorage.getI
+ function fxApply(){
+   const box = $("cmdFx"), pill = $("fxPill");
+   if (box) box.style.display = FX_ON ? "" : "none";
+-  if (pill) pill.textContent = FX_ON ? "🎬 特效 开" : "🎬 特效 关";
++  if (pill) pill.textContent = FX_ON ? "特效 · 开" : "特效 · 关";
+   if (!FX_ON) cmdFxClear();
+ }
+ function fxToggle(){
+@@ -1485,7 +1759,7 @@ let STATS_ON = (localStorage.getItem("s2s.stage.stats") !== "0");
+ function statsApply(){
+   const bar = $("statsBar"), pill = $("statsPill");
+   if (bar) bar.style.display = STATS_ON ? "flex" : "none";
+-  if (pill){ pill.textContent = STATS_ON ? "📊 统计 开" : "📊 统计 关";
++  if (pill){ pill.textContent = STATS_ON ? "统计 · 开" : "统计 · 关";
+              pill.style.opacity = STATS_ON ? "1" : ".55"; }
+ }
+ 
+@@ -1540,7 +1814,7 @@ function renderStats(st){
+   const mem = s.memory || {};
+   const cr = (s.credits) || {};
+   const el = (id) => $(id);
+-  // 2026-11-01 版式三块 + 数字补间动效(用户要求"变化时丝滑")
++  // 紧凑统计字幕，保留原有数字补间与数据来源。
+   const plain = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
+   if (el("stTokens")) stSetNum("stTokens", "tokens", tk.total, "");
+   if (el("stCredits")) stSetNum("stCredits", "credits", cr.spent, "");
+@@ -1556,81 +1830,97 @@ function renderStats(st){
+ 
+ }
+ 
+-/* 📊 统计面板可拖动(2026-11-01 用户要求): 拖动记位置, 双击复位 */
+-const STATS_POS_KEY = "s2s.stage.statsPos";
+-const STATS_DEFAULT = { left: 22, top: null };   // top=null 表示用 CSS 里的默认位置
++/* 统计字幕：默认右下角，按可移动范围的比例保存拖动位置。 */
++const STATS_POS_KEY = "s2s.stage.statsSubtitlePos.v1";
++
++function statsBounds(el){
++  const host = el.offsetParent || $("videoWrap");
++  return { host, x: Math.max(0, host.clientWidth - el.offsetWidth),
++                 y: Math.max(0, host.clientHeight - el.offsetHeight) };
++}
++
++function statsPlace(el, x, y, save){
++  const bounds = statsBounds(el);
++  const left = Math.max(0, Math.min(Number(x) || 0, bounds.x));
++  const top = Math.max(0, Math.min(Number(y) || 0, bounds.y));
++  el.style.right = "auto"; el.style.bottom = "auto";
++  el.style.left = left + "px"; el.style.top = top + "px";
++  if (save){
++    try{ localStorage.setItem(STATS_POS_KEY, JSON.stringify({
++      x: bounds.x ? left / bounds.x : 1, y: bounds.y ? top / bounds.y : 1 })); }catch(e){}
++  }
++}
+ 
+ function statsApplyPos(){
+-  const el = $("statsBar"); if (!el) return;
++  const el = $("statsBar"); if (!el || el._statsDragging || !el.getClientRects().length) return;
+   let p = null;
+   try{ p = JSON.parse(localStorage.getItem(STATS_POS_KEY) || "null"); }catch(e){ p = null; }
+-  if (p && typeof p.left === "number" && typeof p.top === "number"){
+-    el.style.left = Math.max(0, p.left) + "px";
+-    el.style.top = Math.max(0, p.top) + "px";
++  if (p && Number.isFinite(p.x) && Number.isFinite(p.y)){
++    const bounds = statsBounds(el);
++    statsPlace(el, p.x * bounds.x, p.y * bounds.y, false);
+   }else{
+-    el.style.left = ""; el.style.top = "";      // 回到 CSS 默认
++    el.style.left = ""; el.style.top = "";
++    el.style.right = ""; el.style.bottom = "";
+   }
+ }
+ 
+ function statsInitDrag(){
+   const el = $("statsBar"); if (!el || el._dragReady) return;
+   el._dragReady = true;
+-  el.style.pointerEvents = "auto";
+-  el.style.cursor = "grab";
+-  el.style.userSelect = "none";
+-  el.title = "可以拖动到我想要的任意位置（双击复位）";
++  el.title = "拖动调整位置；双击或 Home 回到右下角；方向键微调";
+ 
+-  let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
++  let sx = 0, sy = 0, ox = 0, oy = 0;
+   el.addEventListener("pointerdown", (ev)=>{
+-    if (ev.button !== 0) return;
+-    const r = el.getBoundingClientRect();
+-    const host = el.offsetParent ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+-    dragging = true;
++    if (ev.button !== 0 || !ev.isPrimary) return;
++    ox = el.offsetLeft; oy = el.offsetTop;
++    el._statsDragging = true;
+     sx = ev.clientX; sy = ev.clientY;
+-    ox = r.left - host.left; oy = r.top - host.top;
+-    el.style.left = ox + "px"; el.style.top = oy + "px";
+-    el.style.cursor = "grabbing";
++    statsPlace(el, ox, oy, false);
++    el.classList.add("is-dragging");
+     try{ el.setPointerCapture(ev.pointerId); }catch(e){}
++    el.focus({preventScroll:true});
+     ev.preventDefault();
+   });
+   el.addEventListener("pointermove", (ev)=>{
+-    if (!dragging) return;
+-    const host = el.offsetParent || document.body;
+-    const hw = host.clientWidth, hh = host.clientHeight;
+-    const w = el.offsetWidth, h = el.offsetHeight;
+-    let nx = ox + (ev.clientX - sx);
+-    let ny = oy + (ev.clientY - sy);
+-    nx = Math.max(0, Math.min(nx, Math.max(0, hw - w)));
+-    ny = Math.max(0, Math.min(ny, Math.max(0, hh - h)));
+-    el.style.left = nx + "px";
+-    el.style.top = ny + "px";
++    if (!el._statsDragging) return;
++    statsPlace(el, ox + ev.clientX - sx, oy + ev.clientY - sy, false);
+   });
+   const stop = (ev)=>{
+-    if (!dragging) return;
+-    dragging = false;
+-    el.style.cursor = "grab";
+-    try{
+-      const host = el.offsetParent ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+-      const r = el.getBoundingClientRect();
+-      localStorage.setItem(STATS_POS_KEY, JSON.stringify({
+-        left: Math.round(r.left - host.left), top: Math.round(r.top - host.top) }));
+-    }catch(e){}
++    if (!el._statsDragging) return;
++    el._statsDragging = false;
++    el.classList.remove("is-dragging");
++    statsPlace(el, el.offsetLeft, el.offsetTop, true);
++    try{ el.releasePointerCapture(ev.pointerId); }catch(e){}
+   };
+   el.addEventListener("pointerup", stop);
+   el.addEventListener("pointercancel", stop);
+-  el.addEventListener("dblclick", ()=>{
++  el.addEventListener("lostpointercapture", stop);
++  const reset = ()=>{
+     try{ localStorage.removeItem(STATS_POS_KEY); }catch(e){}
+     statsApplyPos();
+-    toast("统计面板位置已复位");
++    toast("统计字幕已回到右下角");
++  };
++  el.addEventListener("dblclick", reset);
++  el.addEventListener("keydown", (ev)=>{
++    if (ev.key === "Home"){ ev.preventDefault(); reset(); return; }
++    const delta = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]}[ev.key];
++    if (!delta) return;
++    ev.preventDefault();
++    const step = ev.shiftKey ? 24 : 8;
++    statsPlace(el, el.offsetLeft + delta[0] * step, el.offsetTop + delta[1] * step, true);
+   });
+   window.addEventListener("resize", ()=>{ statsApplyPos(); });
++  if (typeof ResizeObserver !== "undefined"){
++    const observer = new ResizeObserver(()=>statsApplyPos());
++    observer.observe($("videoWrap")); observer.observe(el);
++    el._statsResizeObserver = observer;
++  }
+ }
+ 
+ $("statsPill") && $("statsPill").addEventListener("click", ()=>{
+   STATS_ON = !STATS_ON;
+   try{ localStorage.setItem("s2s.stage.stats", STATS_ON ? "1" : "0"); }catch(e){}
+   statsApply();
+-statsInitDrag(); statsApplyPos();
+   if (!STATS_ON) return;
+   statsInitDrag(); statsApplyPos();
+   api("/api/live/status").then(renderStats).catch(()=>{});
+@@ -1707,7 +1997,7 @@ async function poll(){
+     fxWasActive = !!st.active;
+     const vp = $("voicePill");
+     vp.style.display = "";
+-    vp.textContent = "🎙 " + (st.voice || "?");
++    vp.textContent = "音色 · " + (st.voice || "?");
+     if (st.transcripts_total != null && st.transcripts_total < state.since) state.since = 0;   // 桥重启过(tr_total 归零) → 游标重置, 否则新字幕全被旧游标挡掉(2026-10-13)
+     if (st.new_transcripts) for (const t of st.new_transcripts){ state.since = Math.max(state.since, t.i); trAdd(t.role, t.text, t.role + ":" + t.i); }
+     if (!st.active && state.liveId){
+@@ -1731,6 +2021,7 @@ function resetUi(){
+   showAvatarStill(true);
+   $("maskCap").textContent = "已结束。点「开始连线」重新开一场。";
+   $("btnGo").disabled = false;
++  $("btnGo").textContent = "开始连线";
+   $("timerPill").style.display = "none";
+   leaveRtc();
+ }
+@@ -3108,7 +3399,7 @@ $("rightPanel").appendChild($("choreo"));
+ (function stageSplit(){
+   const main = $("main"), sp = $("splitter"), panel = $("rightPanel");
+   if (!main || !sp || !panel) return;
+-  const DEF = 420, MIN = 240;
++  const DEF = 380, MIN = 240;
+   let folded = false, lastW = DEF, dragging = false;
+   const maxW = () => Math.min(window.innerWidth * 0.75, window.innerWidth - 320);
+   function apply(w){
+@@ -3136,7 +3427,7 @@ $("rightPanel").appendChild($("choreo"));
+     try{ sp.setPointerCapture(e.pointerId); }catch(_){}
+     main.classList.add("dragging"); e.preventDefault();
+   });
+-  sp.addEventListener("pointermove", e => { if (dragging) apply(window.innerWidth - e.clientX - 16); });
++  sp.addEventListener("pointermove", e => { if (dragging) apply(window.innerWidth - e.clientX - 20); });
+   sp.addEventListener("pointerup", e => {
+     if (!dragging) return;
+     dragging = false; main.classList.remove("dragging");
+@@ -3144,16 +3435,18 @@ $("rightPanel").appendChild($("choreo"));
+     save(curW()); rerender();
+   });
+   sp.addEventListener("dblclick", () => { const w = apply(DEF); save(w); rerender(); toast("右栏宽度已复位 " + w + "px"); });
+-  window.addEventListener("resize", () => apply(curW()));
++  window.addEventListener("resize", () => { if (!folded) apply(curW()); });
+   const fb = $("btnSplitFold");
+   if (fb) fb.addEventListener("click", () => {
+     if (!folded){
+       folded = true; lastW = curW();
++      main.classList.add("is-right-folded");
+       main.style.setProperty("--rightW", "0px");
+       sp.style.display = "none";
+       fb.textContent = "⤡ 展开右栏"; fb.classList.add("on");
+     } else {
+       folded = false; sp.style.display = "";
++      main.classList.remove("is-right-folded");
+       apply(lastW);
+       fb.textContent = "⤢ 全屏视频"; fb.classList.remove("on");
+     }

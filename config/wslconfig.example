@@ -1,0 +1,7 @@
+# Merge these entries into %UserProfile%\.wslconfig; do not overwrite unrelated settings.
+# Mirrored networking needs a supported Windows 11 and recent WSL release.
+[wsl2]
+networkingMode=mirrored
+dnsTunneling=true
+autoProxy=true
+localhostForwarding=true
