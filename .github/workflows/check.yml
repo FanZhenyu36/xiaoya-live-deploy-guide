@@ -48,4 +48,4 @@ jobs:
         with:
           node-version: '24'
       - name: Test persona autosave and draft recovery
-        run: STAGE_HTML="$RUNNER_TEMP/stage/stage/index.html" node --test tests_web/test_persona_editor.cjs
+        run: STAGE_HTML="$RUNNER_TEMP/stage/stage/index.html" node --test tests_web/*.cjs

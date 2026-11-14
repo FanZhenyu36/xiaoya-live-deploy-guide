@@ -568,7 +568,71 @@ diff --git a/stage/index.html b/stage/index.html
    }
  }
  
-@@ -1232,7 +1522,7 @@
+@@ -1104,6 +1394,38 @@
+   return joinArtc(rtc);
+ }
+ 
++/* RTC_VIDEO_BINDING_BEGIN */
++function createRtcVideoBinding(engine, video, play, isCurrent = ()=>true){
++  const streams = new Map();
++  let bound = null;
++  function update(uid, track, subscription){
++    if (!isCurrent() || ![1, 2].includes(track)) return;
++    const status = Number(subscription);
++    if (status !== 3 && status !== 1) return;
++    const ready = streams.get(uid) || new Set();
++    if (status === 3) ready.add(track); else ready.delete(track);
++    if (ready.size) streams.set(uid, ready); else streams.delete(uid);
++    const chosen = ready.has(1) ? 1 : (ready.has(2) ? 2 : 0);
++    if (!chosen){
++      if (bound && bound.uid === uid) bound = null;
++      return;
++    }
++    if (bound && bound.uid === uid && bound.track === chosen) return;
++    try{
++      if (bound) engine.setRemoteViewConfig(null, bound.uid, bound.track);
++      bound = null;
++      engine.setRemoteViewConfig(video, uid, chosen);
++      bound = {uid, track:chosen};
++      play();
++    }catch(e){ console.warn("[RTC] 视频绑定失败", e); }
++  }
++  return {update, offline(uid){
++    streams.delete(uid);
++    if (bound && bound.uid === uid) bound = null;
++  }};
++}
++/* RTC_VIDEO_BINDING_END */
++
+ async function joinArtc(rtc){
+   if (!window.AliRtcEngine){ toast("AliRTC SDK 未加载（g.alicdn.com 可达性？）", true); return; }
+   let supported;
+@@ -1113,20 +1435,15 @@
+   try{ window.AliRtcEngine.setLogLevel(0); }catch(e){}
+   const engine = window.AliRtcEngine.getInstance();
+   state.engine = engine; state.rtcKind = "artc";
++  const videoBinding = createRtcVideoBinding(engine, $("video"), tryPlay, ()=>state.engine === engine);
+   engine.on("remoteUserOnLineNotify", uid=>{
+     trAdd("sys", "数字人推流端已上线: " + uid);
+-    setTimeout(()=>bindView(uid), 400);
+-    setTimeout(()=>bindView(uid), 2200);
+   });
+-  engine.on("remoteUserOffLineNotify", uid=>trAdd("sys", "推流端离线: " + uid));
+-  engine.on("videoSubscribeStateChanged", (uid, o, n)=>{ trAdd("srv", "video_state uid="+uid+" "+o+"→"+n); bindView(uid); });
++  engine.on("remoteUserOffLineNotify", uid=>{ videoBinding.offline(uid); trAdd("sys", "推流端离线: " + uid); });
++  engine.on("videoSubscribeStateChanged", (uid, o, n)=>{ trAdd("srv", "video_state uid="+uid+" "+o+"→"+n); videoBinding.update(uid, 1, n); });
++  engine.on("screenShareSubscribeStateChanged", (uid, o, n)=>videoBinding.update(uid, 2, n));
+   engine.on("connectionStateChange", (cur, old)=>trAdd("srv", "RTC: "+old+"→"+cur));
+   engine.on("bye", code=>trAdd("sys", "RTC bye code="+code));
+-  function bindView(uid){
+-    try{ engine.setRemoteViewConfig($("video"), uid, 1); }catch(e){}
+-    try{ engine.setRemoteViewConfig($("video"), uid, 2); }catch(e){}
+-    tryPlay();
+-  }
+   // viewer 只订阅不推流(上行音频走桥的 WS, 不经 RTC)
+   const call = async (m, ...a)=>{ if (typeof engine[m] === "function") await engine[m](...a); };
+   try{ await call("setChannelProfile", "communication"); }catch(e){}
+@@ -1232,7 +1549,7 @@
  function fxApply(){
    const box = $("cmdFx"), pill = $("fxPill");
    if (box) box.style.display = FX_ON ? "" : "none";
@@ -577,7 +641,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (!FX_ON) cmdFxClear();
  }
  function fxToggle(){
-@@ -1485,7 +1775,7 @@
+@@ -1485,7 +1802,7 @@
  function statsApply(){
    const bar = $("statsBar"), pill = $("statsPill");
    if (bar) bar.style.display = STATS_ON ? "flex" : "none";
@@ -586,7 +650,7 @@ diff --git a/stage/index.html b/stage/index.html
               pill.style.opacity = STATS_ON ? "1" : ".55"; }
  }
  
-@@ -1540,7 +1830,7 @@
+@@ -1540,7 +1857,7 @@
    const mem = s.memory || {};
    const cr = (s.credits) || {};
    const el = (id) => $(id);
@@ -595,7 +659,7 @@ diff --git a/stage/index.html b/stage/index.html
    const plain = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
    if (el("stTokens")) stSetNum("stTokens", "tokens", tk.total, "");
    if (el("stCredits")) stSetNum("stCredits", "credits", cr.spent, "");
-@@ -1556,81 +1846,97 @@
+@@ -1556,81 +1873,97 @@
  
  }
  
@@ -736,7 +800,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (!STATS_ON) return;
    statsInitDrag(); statsApplyPos();
    api("/api/live/status").then(renderStats).catch(()=>{});
-@@ -1655,6 +1961,10 @@
+@@ -1655,6 +1988,10 @@
      state.phase = st.phase;
      renderVipBadge(st);
      renderStats(st);
@@ -747,7 +811,7 @@ diff --git a/stage/index.html b/stage/index.html
      const pill = $("phasePill");
      pill.className = "pill " + (st.active ? "live" : (st.error ? "err" : ""));
      pill.textContent = st.active ? (st.mode === "managed" ? "直播中 · 托管RTC" : "直播中 · 自备RTC")
-@@ -1707,7 +2017,7 @@
+@@ -1707,7 +2044,7 @@
      fxWasActive = !!st.active;
      const vp = $("voicePill");
      vp.style.display = "";
@@ -756,7 +820,7 @@ diff --git a/stage/index.html b/stage/index.html
      if (st.transcripts_total != null && st.transcripts_total < state.since) state.since = 0;   // 桥重启过(tr_total 归零) → 游标重置, 否则新字幕全被旧游标挡掉(2026-10-13)
      if (st.new_transcripts) for (const t of st.new_transcripts){ state.since = Math.max(state.since, t.i); trAdd(t.role, t.text, t.role + ":" + t.i); }
      if (!st.active && state.liveId){
-@@ -1731,6 +2041,7 @@
+@@ -1731,6 +2068,7 @@
    showAvatarStill(true);
    $("maskCap").textContent = "已结束。点「开始连线」重新开一场。";
    $("btnGo").disabled = false;
@@ -764,7 +828,7 @@ diff --git a/stage/index.html b/stage/index.html
    $("timerPill").style.display = "none";
    leaveRtc();
  }
-@@ -2610,7 +2921,7 @@
+@@ -2610,7 +2948,7 @@
  $("btnVoiceRefresh").addEventListener("click", loadVoices);
  
  $("btnItt").addEventListener("click", async ()=>{
@@ -773,7 +837,7 @@ diff --git a/stage/index.html b/stage/index.html
    catch(e){ toast("打断失败: " + (e.message||e), true); }
  });
  
-@@ -2893,10 +3204,96 @@
+@@ -2893,10 +3231,96 @@
    catch(e){ toast("测试失败: " + (e.message || e), true); }
  });
  
@@ -871,7 +935,7 @@ diff --git a/stage/index.html b/stage/index.html
      const items = d.items || [];
      sel.innerHTML = items.length
        ? items.map(p => `<option value="${p.id}" ${p.id === d.active ? "selected" : ""}>${p.name}${p.tagline ? " · " + p.tagline : ""}</option>`).join("")
-@@ -2906,57 +3303,42 @@
+@@ -2906,57 +3330,42 @@
      if (hint) hint.textContent = cur
        ? `当前：${cur.name}（${cur.chars} 字）· 目录 ${d.dir}`
        : `还没选人设 · 目录 ${d.dir || "personas/"}`;
@@ -943,7 +1007,7 @@ diff --git a/stage/index.html b/stage/index.html
      $("s_model").value = s.model || "vidu-s2";
      $("s_rtcmode").value = (s.rtc||{}).mode || "managed";
      $("s_mprovider").value = (s.rtc||{}).managed_provider || "artc";
-@@ -2972,7 +3354,6 @@
+@@ -2972,7 +3381,6 @@
      $("s_llm_keyfile").value = (s.llm||{}).key_file || "";
      $("s_llm_temp").value = (s.llm||{}).temperature ?? 0.7;
      $("s_llm_maxtok").value = (s.llm||{}).max_tokens ?? 300;
@@ -951,7 +1015,7 @@ diff --git a/stage/index.html b/stage/index.html
      $("s_dan_interval").value = Math.round(((s.danmaku||{}).read_interval_ms ?? 20000) / 1000);
      $("s_dan_vip_interval").value = Math.round(((s.danmaku||{}).vip_min_interval_ms ?? 5000) / 1000);
      { const st = s.stage || {};
-@@ -3005,7 +3386,7 @@
+@@ -3005,7 +3413,7 @@
      $("s_trtc_id").value = (s.rtc||{}).trtc?.sdk_app_id || "";
      $("s_trtc_key").placeholder = (s.rtc||{}).trtc?.secret_key_set ? "已配置（要改才填）" : "未配置";
    }catch(e){ toast("读取设置失败: " + (e.message||e), true); }
@@ -960,7 +1024,7 @@ diff --git a/stage/index.html b/stage/index.html
    loadPatrons();
  }
  $("btnSave").addEventListener("click", async ()=>{
-@@ -3014,7 +3395,7 @@
+@@ -3014,7 +3422,7 @@
      avatar: {avatar_id: $("s_avatar_id").value.trim() || null},
      action: {enabled: $("s_act_en").checked,
               library_id: $("s_act_lib").value || "0"},
@@ -969,7 +1033,7 @@ diff --git a/stage/index.html b/stage/index.html
                vip_min_interval_ms: Math.max(1, Math.round(+$("s_dan_vip_interval").value || 5)) * 1000},
      stage: {cap_overlay: $("s_cap_on").checked,
              cap_offset_px: Math.max(0, Math.round(+$("s_cap_off").value || 200)),
-@@ -3032,10 +3413,8 @@
+@@ -3032,10 +3440,8 @@
            key_file: $("s_llm_keyfile").value.trim(),
            temperature: Number($("s_llm_temp").value)||0.7,
            max_tokens: Number($("s_llm_maxtok").value)||300,
@@ -982,7 +1046,7 @@ diff --git a/stage/index.html b/stage/index.html
      tts: {chunk_ms: Number($("s_chunk").value)||100},
      session: {greeting: $("s_greeting").value, idle_timeout_seconds: Number($("s_idle").value)||300,
                max_duration_seconds: Number($("s_maxdur").value)||1800,
-@@ -3048,6 +3427,7 @@
+@@ -3048,6 +3454,7 @@
    if (!patch.rtc.artc.app_id) delete patch.rtc.artc.app_id;
    if (!patch.rtc.trtc.sdk_app_id) delete patch.rtc.trtc.sdk_app_id;
    try{
@@ -990,7 +1054,7 @@ diff --git a/stage/index.html b/stage/index.html
      await api("/api/settings", {method:"POST", body:JSON.stringify(patch)});
      // 画面内字幕层是纯前端渲染 → 保存后立刻用新值重画, 不用刷新(其余设置下次连线生效)
      capCfg.on = patch.stage.cap_overlay;
-@@ -3108,7 +3488,7 @@
+@@ -3108,7 +3515,7 @@
  (function stageSplit(){
    const main = $("main"), sp = $("splitter"), panel = $("rightPanel");
    if (!main || !sp || !panel) return;
@@ -999,7 +1063,7 @@ diff --git a/stage/index.html b/stage/index.html
    let folded = false, lastW = DEF, dragging = false;
    const maxW = () => Math.min(window.innerWidth * 0.75, window.innerWidth - 320);
    function apply(w){
-@@ -3136,7 +3516,7 @@
+@@ -3136,7 +3543,7 @@
      try{ sp.setPointerCapture(e.pointerId); }catch(_){}
      main.classList.add("dragging"); e.preventDefault();
    });
@@ -1008,7 +1072,7 @@ diff --git a/stage/index.html b/stage/index.html
    sp.addEventListener("pointerup", e => {
      if (!dragging) return;
      dragging = false; main.classList.remove("dragging");
-@@ -3144,16 +3524,18 @@
+@@ -3144,16 +3551,18 @@
      save(curW()); rerender();
    });
    sp.addEventListener("dblclick", () => { const w = apply(DEF); save(w); rerender(); toast("右栏宽度已复位 " + w + "px"); });
@@ -1028,7 +1092,7 @@ diff --git a/stage/index.html b/stage/index.html
        apply(lastW);
        fb.textContent = "⤢ 全屏视频"; fb.classList.remove("on");
      }
-@@ -3293,9 +3675,13 @@
+@@ -3293,9 +3702,13 @@
  });
  loadKeys();
  
