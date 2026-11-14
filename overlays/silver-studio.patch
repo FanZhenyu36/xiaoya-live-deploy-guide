@@ -457,7 +457,26 @@ diff --git a/stage/index.html b/stage/index.html
      </div>
  
      <div class="sect"><h3>🎭 人设（多套并存 · personas/ 目录）</h3>
-@@ -804,10 +1065,10 @@
+@@ -724,7 +985,7 @@
+         <select id="s_persona" style="flex:1"></select>
+         <button id="btnPersonaApply" class="ghost">应用</button>
+         <button id="btnPersonaReload" class="ghost">刷新</button></div>
+-      <div class="row"><button id="btnPersonaSave" class="ghost">💾 把下面文本框保存到当前人设</button></div>
++      <div class="row"><button id="btnPersonaSave" class="ghost">保存当前人设</button></div>
+       <div class="hint" id="personaHint">切换后下一条回复生效；对话记忆会清空。</div>
+     </div>
+ 
+@@ -735,7 +996,8 @@
+       <div class="row"><label>temperature</label><input type="number" id="s_llm_temp" step="0.1" min="0" max="2">
+         <label>max_tokens</label><input type="number" id="s_llm_maxtok" min="50" step="50"></div>
+       <div class="row"><label>人设 system<span id="llmSysHint" style="color:var(--dim);font-weight:400"></span></label></div>
+-      <textarea id="s_llm_sys"></textarea>
++      <textarea id="s_llm_sys" aria-label="人设 system" disabled></textarea>
++      <div class="row" style="margin-top:8px;gap:12px"><button id="btnPromptSave" class="ghost">保存人设</button><span id="promptSaveState" class="hint" role="status" aria-live="polite">正在读取人设…</span></div>
+       <div class="row"><button id="btnLlmReset" class="ghost">清空对话记忆</button></div>
+     </div>
+ 
+@@ -804,10 +1066,10 @@
  
      <div class="sect"><h3>弹幕主播模式</h3>
        <div class="row"><label>播报间隔(秒)</label>
@@ -471,7 +490,7 @@ diff --git a/stage/index.html b/stage/index.html
      </div>
  
      <div class="sect"><h3>其他</h3>
-@@ -836,6 +1097,13 @@
+@@ -836,6 +1098,13 @@
  const state = {liveId:null, rtc:null, joined:false, engine:null, rtcKind:"", since:0,
                 pollTimer:null, timerTimer:null, startedAt:0, phase:"idle"};
  
@@ -485,7 +504,7 @@ diff --git a/stage/index.html b/stage/index.html
  function toast(msg, bad){
    const d = document.createElement("div");
    d.className = "toast" + (bad ? " bad" : "");
-@@ -853,18 +1121,35 @@
+@@ -853,18 +1122,35 @@
    if (key != null){ if (trAdd._seen === undefined) trAdd._seen = new Set();
      if (trAdd._seen.size > 8000) trAdd._seen.clear();   // 长跑防膨胀(2026-10-13): 纯去重缓存, 清掉最多重画一条
      if (trAdd._seen.has(key)) return; trAdd._seen.add(key); }
@@ -524,7 +543,7 @@ diff --git a/stage/index.html b/stage/index.html
    capPush(role, text);          // 同步一份到画面内覆盖层(推流可见)
    if (role === "sys") sessAdd(text);   // 同步一份到视频容器底部会话日志条(推流可见)
  }
-@@ -978,6 +1263,7 @@
+@@ -978,6 +1264,7 @@
  }
  window.addEventListener("resize", ()=>{ capRender(); });
  function capPush(role, text){
@@ -532,7 +551,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (role === "srv") return;                     // RTC 技术事件不上画面(噪音)
    if (!capCfg.on || capSuppressed) return;        // 放歌中/整层关闭 → 不收
    if (role === "sys") return;                     // sys 事件(推流端已上线/已加入RTC频道/会话创建/点播…)不上画面中央,
-@@ -1069,6 +1355,7 @@
+@@ -1069,6 +1356,7 @@
    if (state.busy) return;
    state.busy = true;
    $("btnGo").disabled = true;
@@ -540,7 +559,7 @@ diff --git a/stage/index.html b/stage/index.html
    $("maskCap").textContent = "正在创建会话…";
    try{
      const res = await api("/api/live/start", {method:"POST", body:JSON.stringify({})});
-@@ -1084,6 +1371,8 @@
+@@ -1084,6 +1372,8 @@
      toast("连线失败: " + (e.message||e), true);
    }finally{
      state.busy = false;
@@ -549,7 +568,7 @@ diff --git a/stage/index.html b/stage/index.html
    }
  }
  
-@@ -1232,7 +1521,7 @@
+@@ -1232,7 +1522,7 @@
  function fxApply(){
    const box = $("cmdFx"), pill = $("fxPill");
    if (box) box.style.display = FX_ON ? "" : "none";
@@ -558,7 +577,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (!FX_ON) cmdFxClear();
  }
  function fxToggle(){
-@@ -1485,7 +1774,7 @@
+@@ -1485,7 +1775,7 @@
  function statsApply(){
    const bar = $("statsBar"), pill = $("statsPill");
    if (bar) bar.style.display = STATS_ON ? "flex" : "none";
@@ -567,7 +586,7 @@ diff --git a/stage/index.html b/stage/index.html
               pill.style.opacity = STATS_ON ? "1" : ".55"; }
  }
  
-@@ -1540,7 +1829,7 @@
+@@ -1540,7 +1830,7 @@
    const mem = s.memory || {};
    const cr = (s.credits) || {};
    const el = (id) => $(id);
@@ -576,7 +595,7 @@ diff --git a/stage/index.html b/stage/index.html
    const plain = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
    if (el("stTokens")) stSetNum("stTokens", "tokens", tk.total, "");
    if (el("stCredits")) stSetNum("stCredits", "credits", cr.spent, "");
-@@ -1556,81 +1845,97 @@
+@@ -1556,81 +1846,97 @@
  
  }
  
@@ -717,7 +736,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (!STATS_ON) return;
    statsInitDrag(); statsApplyPos();
    api("/api/live/status").then(renderStats).catch(()=>{});
-@@ -1655,6 +1960,10 @@
+@@ -1655,6 +1961,10 @@
      state.phase = st.phase;
      renderVipBadge(st);
      renderStats(st);
@@ -728,7 +747,7 @@ diff --git a/stage/index.html b/stage/index.html
      const pill = $("phasePill");
      pill.className = "pill " + (st.active ? "live" : (st.error ? "err" : ""));
      pill.textContent = st.active ? (st.mode === "managed" ? "直播中 · 托管RTC" : "直播中 · 自备RTC")
-@@ -1707,7 +2016,7 @@
+@@ -1707,7 +2017,7 @@
      fxWasActive = !!st.active;
      const vp = $("voicePill");
      vp.style.display = "";
@@ -737,7 +756,7 @@ diff --git a/stage/index.html b/stage/index.html
      if (st.transcripts_total != null && st.transcripts_total < state.since) state.since = 0;   // 桥重启过(tr_total 归零) → 游标重置, 否则新字幕全被旧游标挡掉(2026-10-13)
      if (st.new_transcripts) for (const t of st.new_transcripts){ state.since = Math.max(state.since, t.i); trAdd(t.role, t.text, t.role + ":" + t.i); }
      if (!st.active && state.liveId){
-@@ -1731,6 +2040,7 @@
+@@ -1731,6 +2041,7 @@
    showAvatarStill(true);
    $("maskCap").textContent = "已结束。点「开始连线」重新开一场。";
    $("btnGo").disabled = false;
@@ -745,7 +764,7 @@ diff --git a/stage/index.html b/stage/index.html
    $("timerPill").style.display = "none";
    leaveRtc();
  }
-@@ -2610,7 +2920,7 @@
+@@ -2610,7 +2921,7 @@
  $("btnVoiceRefresh").addEventListener("click", loadVoices);
  
  $("btnItt").addEventListener("click", async ()=>{
@@ -754,7 +773,194 @@ diff --git a/stage/index.html b/stage/index.html
    catch(e){ toast("打断失败: " + (e.message||e), true); }
  });
  
-@@ -3014,7 +3324,7 @@
+@@ -2893,10 +3204,96 @@
+   catch(e){ toast("测试失败: " + (e.message || e), true); }
+ });
+ 
+-async function loadPersonas(){
++/* PERSONA_EDITOR_BEGIN */
++class PersonaPromptEditor {
++  constructor({persist, render, status, storage, delay = 800}){
++    Object.assign(this, {persist, render, status, storage, delay});
++    this.loaded = false; this.dirty = false; this.pending = null;
++    this.revision = 0; this.loadSeq = 0; this.text = ""; this.saved = "";
++    this.meta = {id:""}; this.timer = null;
++  }
++  key(){ return "xiaoya.persona-draft.v1:" + (this.meta.id || "global"); }
++  beginLoad(){ return {seq: ++this.loadSeq, revision:this.revision}; }
++  draft(){
++    try{
++      if (this.dirty) this.storage.setItem(this.key(), this.text);
++      else this.storage.removeItem(this.key());
++    }catch(_e){}
++  }
++  schedule(){
++    clearTimeout(this.timer);
++    if (this.dirty) this.timer = setTimeout(()=>this.save().catch(()=>{}), this.delay);
++  }
++  load(meta, prompt, token){
++    if (token.seq !== this.loadSeq || token.revision !== this.revision || this.dirty || this.pending) return false;
++    this.meta = meta; this.saved = String(prompt || ""); this.text = this.saved;
++    try { const draft = this.storage.getItem(this.key()); if (draft !== null) this.text = draft; } catch(_e){}
++    this.loaded = true; this.dirty = this.text !== this.saved; this.revision++;
++    this.render(this.text); this.draft();
++    this.status(this.dirty ? "已恢复草稿，正在准备保存…" : "已保存 · 输入后自动保存");
++    this.schedule(); return true;
++  }
++  input(text){
++    if (!this.loaded) return;
++    this.text = text; this.revision++; this.dirty = this.text !== this.saved || Boolean(this.pending);
++    this.draft(); this.status(this.dirty ? "未保存 · 稍后自动保存" : "已保存"); this.schedule();
++  }
++  async save(){
++    clearTimeout(this.timer);
++    if (this.pending){ await this.pending; return this.save(); }
++    if (!this.loaded) throw new Error("人设仍在读取，请稍后再试");
++    if (!this.dirty) return;
++    const snapshot = {meta:{...this.meta}, text:this.text, revision:this.revision};
++    if (!snapshot.text.trim()){
++      this.status("人设不能为空 · 草稿已保留", true);
++      throw new Error("人设内容不能为空");
++    }
++    this.status("正在保存…");
++    this.pending = (async()=>{
++      await this.persist(snapshot.meta, snapshot.text);
++      this.saved = snapshot.text;
++      this.dirty = this.text !== this.saved;
++      this.revision++;  // 阻止保存前发起的旧读取覆盖新值
++      this.draft();
++      this.status(this.dirty ? "还有新修改，正在继续保存…" : "已保存 · 下一条回复生效");
++    })().catch(e=>{
++      this.status("保存失败 · 草稿已保留，请重试", true); throw e;
++    }).finally(()=>{ this.pending = null; });
++    await this.pending;
++    if (this.dirty) return this.save();
++  }
++}
++/* PERSONA_EDITOR_END */
++
++const personaEditor = new PersonaPromptEditor({
++  storage: window.localStorage,
++  render: text=>{ $("s_llm_sys").value = text; $("s_llm_sys").disabled = false; },
++  status: (text, bad)=>{ $("promptSaveState").textContent = text; $("promptSaveState").style.color = bad ? "#b45309" : ""; },
++  persist: async (meta, text)=>{
++    if (meta.id){
++      await api("/api/personas/save", {method:"POST", body:JSON.stringify({
++        id:meta.id, name:meta.name || meta.id, tagline:meta.tagline || "",
++        voice:meta.voice || "", avatar_note:meta.avatar_note || "", system_prompt:text,
++      })});
++    }else{
++      await api("/api/settings", {method:"POST", body:JSON.stringify({llm:{system_prompt:text}})});
++    }
++  },
++});
++$("s_llm_sys").addEventListener("input", e=>personaEditor.input(e.target.value));
++$("s_llm_sys").addEventListener("blur", ()=>personaEditor.save().catch(()=>{}));
++async function savePersonaPrompt(){
++  try{ await personaEditor.save(); toast("人设已保存，下一条回复生效"); }
++  catch(e){ toast("人设保存失败：" + (e.message || e), true); }
++}
++$("btnPromptSave").addEventListener("click", savePersonaPrompt);
++
++async function loadPersonas(settings = null, promptLoad = personaEditor.beginLoad()){
+   const sel = $("s_persona"); if (!sel) return;
+   try{
+     const d = await api("/api/personas");
++    const s = settings || await api("/api/settings");
++    if (promptLoad.seq !== personaEditor.loadSeq) return;
+     const items = d.items || [];
+     sel.innerHTML = items.length
+       ? items.map(p => `<option value="${p.id}" ${p.id === d.active ? "selected" : ""}>${p.name}${p.tagline ? " · " + p.tagline : ""}</option>`).join("")
+@@ -2906,57 +3303,42 @@
+     if (hint) hint.textContent = cur
+       ? `当前：${cur.name}（${cur.chars} 字）· 目录 ${d.dir}`
+       : `还没选人设 · 目录 ${d.dir || "personas/"}`;
+-    // 2026-10-29 修: 「人设 system」文本框原来一直显示 config.llm.system_prompt(旧全局字段),
+-    // 于是选了小汐、框里却还是小雅的文字 → 看着像没切成功。这里用当前人设的 prompt 覆盖它。
+-    const ta = $("s_llm_sys"), sh = $("llmSysHint");
+-    if (cur && d.prompt){
+-      if (ta && document.activeElement !== ta) ta.value = d.prompt;
+-      if (ta) ta.dataset.ro = "1";        // 人设激活 → 框只读(要改请用上面的💾按钮)
++    const sh = $("llmSysHint");
++    personaEditor.load(cur || {id:""}, cur ? d.prompt : (s.llm || {}).system_prompt, promptLoad);
++    if (cur){
+       const pv = $("s_prevtxt");          // 试听文案也别写死人设名
+       if (pv && pv.dataset.auto === "1") pv.value = `你好呀，我是${cur.name}，切换成这个声音说话，就是这样的感觉。`;
+-      if (sh) sh.textContent = `（= 当前人设「${cur.name}」· 改完点上面「💾 保存到当前人设」）`;
++      if (sh) sh.textContent = `（当前人设「${cur.name}」· 输入后自动保存）`;
+     }else if (sh){
+-      if (ta) delete ta.dataset.ro;
+-      sh.textContent = cur
+-        ? `（当前人设：${cur.name} · 这行文字是旧的全局备用字段，重启桥后这里会显示人设内容）`
+-        : "（未选人设 → 用这个全局字段）";
++      sh.textContent = "（全局人设 · 输入后自动保存）";
+     }
+   }catch(e){ toast("人设列表加载失败: " + (e.message || e), true); }
+ }
+ 
+-$("btnPersonaReload") && $("btnPersonaReload").addEventListener("click", ()=>loadPersonas());
++$("btnPersonaReload") && $("btnPersonaReload").addEventListener("click", async ()=>{
++  try{ await personaEditor.save(); await loadPersonas(); }
++  catch(e){ toast("刷新失败：" + (e.message || e), true); }
++});
+ $("btnPersonaApply") && $("btnPersonaApply").addEventListener("click", async ()=>{
+   const sel = $("s_persona"); if (!sel || !sel.value) return;
+   try{
++    await personaEditor.save();
+     const r = await api("/api/personas/select", {method:"POST", body: JSON.stringify({id: sel.value})});
+     toast(`已切到「${r.name}」（${r.chars} 字）· 下一条回复生效`);
+     await loadPersonas();
+   }catch(e){ toast("切换失败: " + (e.message || e), true); }
+ });
+ 
+-$("btnPersonaSave") && $("btnPersonaSave").addEventListener("click", async ()=>{
+-  const sel = $("s_persona"), ta = $("s_llm_sys");
+-  const pid = sel && sel.value;
+-  const txt = ta ? ta.value.trim() : "";
+-  if (!pid){ toast("先选一个人设", true); return; }
+-  if (!txt){ toast("文本框是空的，没东西可存", true); return; }
+-  try{
+-    const d = await api("/api/personas");
+-    const cur = (d.items || []).find(p => p.id === pid) || {};
+-    const r = await api("/api/personas/save", {method:"POST", body: JSON.stringify({
+-      id: pid, name: cur.name || pid, tagline: cur.tagline || "",
+-      voice: cur.voice || "", avatar_note: cur.avatar_note || "", system_prompt: txt,
+-    })});
+-    toast(`已保存到「${r.persona.name}」（${r.persona.chars} 字）· 下一条回复生效`);
+-    await loadPersonas();
+-  }catch(e){ toast("保存失败: " + (e.message || e), true); }
+-});
++$("btnPersonaSave") && $("btnPersonaSave").addEventListener("click", savePersonaPrompt);
+ 
+ $("s_prevtxt") && $("s_prevtxt").addEventListener("input", (e)=>{ delete e.target.dataset.auto; });
+ 
+ async function loadSettings(){
++  const promptLoad = personaEditor.beginLoad();
++  let settings = null;
+   try{
+     const s = await api("/api/settings");
++    settings = s;
+     $("s_model").value = s.model || "vidu-s2";
+     $("s_rtcmode").value = (s.rtc||{}).mode || "managed";
+     $("s_mprovider").value = (s.rtc||{}).managed_provider || "artc";
+@@ -2972,7 +3354,6 @@
+     $("s_llm_keyfile").value = (s.llm||{}).key_file || "";
+     $("s_llm_temp").value = (s.llm||{}).temperature ?? 0.7;
+     $("s_llm_maxtok").value = (s.llm||{}).max_tokens ?? 300;
+-    $("s_llm_sys").value = (s.llm||{}).system_prompt || "";
+     $("s_dan_interval").value = Math.round(((s.danmaku||{}).read_interval_ms ?? 20000) / 1000);
+     $("s_dan_vip_interval").value = Math.round(((s.danmaku||{}).vip_min_interval_ms ?? 5000) / 1000);
+     { const st = s.stage || {};
+@@ -3005,7 +3386,7 @@
+     $("s_trtc_id").value = (s.rtc||{}).trtc?.sdk_app_id || "";
+     $("s_trtc_key").placeholder = (s.rtc||{}).trtc?.secret_key_set ? "已配置（要改才填）" : "未配置";
+   }catch(e){ toast("读取设置失败: " + (e.message||e), true); }
+-  loadPersonas();
++  await loadPersonas(settings, promptLoad);
+   loadPatrons();
+ }
+ $("btnSave").addEventListener("click", async ()=>{
+@@ -3014,7 +3395,7 @@
      avatar: {avatar_id: $("s_avatar_id").value.trim() || null},
      action: {enabled: $("s_act_en").checked,
               library_id: $("s_act_lib").value || "0"},
@@ -763,7 +969,28 @@ diff --git a/stage/index.html b/stage/index.html
                vip_min_interval_ms: Math.max(1, Math.round(+$("s_dan_vip_interval").value || 5)) * 1000},
      stage: {cap_overlay: $("s_cap_on").checked,
              cap_offset_px: Math.max(0, Math.round(+$("s_cap_off").value || 200)),
-@@ -3108,7 +3418,7 @@
+@@ -3032,10 +3413,8 @@
+           key_file: $("s_llm_keyfile").value.trim(),
+           temperature: Number($("s_llm_temp").value)||0.7,
+           max_tokens: Number($("s_llm_maxtok").value)||300,
+-          /* 2026-10-30: 选了人设时不要把文本框内容写回 llm.system_prompt ——
+-             框里显示的是人设内容, 写进去会造成"人设文本 / 全局字段"两处漂移。
+-             改人设请用「💾 保存到当前人设」。 */
+-          ...($("s_llm_sys").dataset.ro === "1" ? {} : {system_prompt: $("s_llm_sys").value})},
++          /* 人设由独立编辑器写入正确目标，其他设置不覆盖它。 */
++          },
+     tts: {chunk_ms: Number($("s_chunk").value)||100},
+     session: {greeting: $("s_greeting").value, idle_timeout_seconds: Number($("s_idle").value)||300,
+               max_duration_seconds: Number($("s_maxdur").value)||1800,
+@@ -3048,6 +3427,7 @@
+   if (!patch.rtc.artc.app_id) delete patch.rtc.artc.app_id;
+   if (!patch.rtc.trtc.sdk_app_id) delete patch.rtc.trtc.sdk_app_id;
+   try{
++    await personaEditor.save();
+     await api("/api/settings", {method:"POST", body:JSON.stringify(patch)});
+     // 画面内字幕层是纯前端渲染 → 保存后立刻用新值重画, 不用刷新(其余设置下次连线生效)
+     capCfg.on = patch.stage.cap_overlay;
+@@ -3108,7 +3488,7 @@
  (function stageSplit(){
    const main = $("main"), sp = $("splitter"), panel = $("rightPanel");
    if (!main || !sp || !panel) return;
@@ -772,7 +999,7 @@ diff --git a/stage/index.html b/stage/index.html
    let folded = false, lastW = DEF, dragging = false;
    const maxW = () => Math.min(window.innerWidth * 0.75, window.innerWidth - 320);
    function apply(w){
-@@ -3136,7 +3446,7 @@
+@@ -3136,7 +3516,7 @@
      try{ sp.setPointerCapture(e.pointerId); }catch(_){}
      main.classList.add("dragging"); e.preventDefault();
    });
@@ -781,7 +1008,7 @@ diff --git a/stage/index.html b/stage/index.html
    sp.addEventListener("pointerup", e => {
      if (!dragging) return;
      dragging = false; main.classList.remove("dragging");
-@@ -3144,16 +3454,18 @@
+@@ -3144,16 +3524,18 @@
      save(curW()); rerender();
    });
    sp.addEventListener("dblclick", () => { const w = apply(DEF); save(w); rerender(); toast("右栏宽度已复位 " + w + "px"); });
@@ -801,3 +1028,19 @@ diff --git a/stage/index.html b/stage/index.html
        apply(lastW);
        fb.textContent = "⤢ 全屏视频"; fb.classList.remove("on");
      }
+@@ -3293,9 +3675,13 @@
+ });
+ loadKeys();
+ 
+-$("btnDrawerX").addEventListener("click", ()=>$("drawer").classList.remove("open"));
++async function closeSettings(){
++  try { await personaEditor.save(); $("drawer").classList.remove("open"); }
++  catch(e){ toast("人设还未保存：" + (e.message || e), true); }
++}
++$("btnDrawerX").addEventListener("click", closeSettings);
+ document.addEventListener("keydown", e=>{
+-  if (e.key === "Escape"){ $("drawer").classList.remove("open"); $("songs").classList.remove("open"); }
++  if (e.key === "Escape"){ if ($("drawer").classList.contains("open")) closeSettings(); $("songs").classList.remove("open"); }
+ });
+ $("btnGo").addEventListener("click", start);
+ 
