@@ -14,7 +14,7 @@ diff --git a/src/engine.py b/src/engine.py
      # 代码版本标记: /api/health 会带出去 —— 用来确认"跑着的进程是不是最新代码"
      # (2026-10-09 反复出现"改了没生效"的误会: 进程内存里是启动那一刻的代码)
 -    BUILD = "2026-10-17.prefetch.v14"
-+    BUILD = "2026-11-14.audience-fifo.sentence1"
++    BUILD = "2026-11-14.audience-nick.sentence2"
  
      def __init__(self):
          self.llm = llmmod.LLMClient(lambda: (appconf.load().get("llm") or {}))
@@ -393,9 +393,36 @@ diff --git a/src/engine.py b/src/engine.py
      async def _llm_collect(self, text: str, record: bool = True) -> list[str]:
          """把 text 发给 LLM, 收齐完整句子后的回答。
          record=False: 不写 history —— 用于系统自发的调用(空闲搭话), 否则会污染上下文。"""
-@@ -2251,9 +2454,9 @@
+@@ -2245,15 +2448,35 @@
+             return ""
+         head = (f"【直播间弹幕】这一小段共 {len(lines)} 条："
+                 if len(lines) > 1 else "【直播间弹幕】")
++        address = ("观众昵称由系统在开头称呼一次，回答正文不要再重复昵称；"
++                   if len(items) == 1 and self._dan_cfg("answer_call_nick", True)
++                   else "可以点观众名，但")
+         return (head + "\n" + "\n".join(lines) + "\n"
+                 "（你现在用主播口吻回应：挑 1 个点说，一到两句、尽量一句话，不超过 45 字；"
+-                "可以点观众名，但**别把弹幕原话再念一遍**；"
++                + address + "**别把弹幕原话再念一遍**；"
                  "涉及隐私/引战/敏感内容不接，带过或拉回直播内容；没把握的别编。）")
  
++    def _dan_answer_with_nick(self, sentences: list[str], item: dict) -> list[str]:
++        """昵称只放进回答的第一句，和正文一次合成；不朗读账号 ID 或问题。"""
++        if not sentences or not self._dan_cfg("answer_call_nick", True):
++            return sentences
++        nick = re.sub(r"[\x00-\x1f\x7f\u200b-\u200f\u202a-\u202e\u2066-\u2069]",
++                      "", str(item.get("nick") or "")).strip()[:40]
++        nick = self._speech_clean(llmmod.clean_for_speech(nick), drop_if_hit=True)
++        if not nick:
++            return sentences
++        first = sentences[0]
++        # 模型偶尔仍自行点名时，不再额外加一遍。
++        addressed = re.match(r"^@?" + re.escape(nick)
++                             + r"(?=$|[\s，,：:、。.!！?？～~]|你好|您好|呀|啊|同学|朋友)", first)
++        if addressed:
++            return [first.lstrip("@"), *sentences[1:]]
++        return [f"{nick}，{first}", *sentences[1:]]
++
      async def _speak_danmaku_batch(self, items: list[dict]) -> None:
 -        """一批弹幕(1-N 条): 复读其中 1 条 → LLM 针对整批做一次回答。
 -        ⚠ 弹幕是最低优先级(**歌曲 > 打字聊天 > 弹幕**): 拿喂流权用 wait_only=True,
@@ -406,7 +433,13 @@ diff --git a/src/engine.py b/src/engine.py
          items = [x for x in items if (x.get("content") or x.get("text"))]
          if not items:
              return
-@@ -2314,7 +2517,8 @@
+@@ -2310,11 +2533,14 @@
+             if _clean != use:
+                 print(f"[speech] 台词过滤: {len(use)} 句 → {len([x for x in _clean if x])} 句", flush=True)
+             use = [x for x in _clean if x]
++            if len(items) == 1:
++                use = self._dan_answer_with_nick(use, items[0])
+             # ⚠️ 2026-10-17 用户反馈"句子中间一顿一顿": 原来是 **喂完一句才合成下一句**
              #   (每句合成 1.4~1.8s 而音频只有 2~5s) → 句间静默 1~1.8s = 听感断续。
              #   改成 **边放边合成下一句(预取)**, 并把短句合并成更长的块。
              _mm, _fm = self._merge_chars()
@@ -416,7 +449,7 @@ diff --git a/src/engine.py b/src/engine.py
              if len(_merged) != len(use):
                  print(f"[tts] 弹幕回答 短句合并: {len(use)} 段 → {len(_merged)} 块", flush=True)
              use = _merged
-@@ -2349,6 +2553,8 @@
+@@ -2349,6 +2575,8 @@
                      self.tr_add("dh", s)
                      await self._out_text(s, "弹幕回答字幕")
                      self.last_activity = time.time()
@@ -425,7 +458,7 @@ diff --git a/src/engine.py b/src/engine.py
                      if not await self._feed_pcm(pcm, evt):
                          return
              finally:
-@@ -2366,6 +2572,9 @@
+@@ -2366,6 +2594,9 @@
          **歌曲优先权最高**: 歌在播时全部在 _dan_hold_gates 里排队;
          播报途中被点播新歌/用户动作抢占时, 只取消 item 任务, worker 存活 →
          歌放完(或手动停止演唱)后能自动接着播, 不依赖"下一条弹幕进来"才醒。"""
@@ -435,7 +468,7 @@ diff --git a/src/engine.py b/src/engine.py
          me = asyncio.current_task()
          print(f"[danmaku] {_ts()}worker 启动 (buf={len(self._dan_buf)} vip={len(self._dan_vipq)})",
                flush=True)
-@@ -2455,7 +2664,7 @@
+@@ -2455,7 +2686,7 @@
                      continue
                  if self._song_playing or self._chat_busy:
                      continue
@@ -444,7 +477,7 @@ diff --git a/src/engine.py b/src/engine.py
                      continue
                  if self._gift_task and not self._gift_task.done():
                      continue
-@@ -2516,8 +2725,8 @@
+@@ -2516,8 +2747,8 @@
          if not picked:
              return
          mm, fm = self._merge_chars()
@@ -455,7 +488,7 @@ diff --git a/src/engine.py b/src/engine.py
              return
          evt = asyncio.Event()
          self._cur_evt = evt
-@@ -2563,7 +2772,7 @@
+@@ -2563,7 +2794,7 @@
                  await asyncio.sleep(5)
                  if self.phase != "live":
                      continue
@@ -464,7 +497,7 @@ diff --git a/src/engine.py b/src/engine.py
                  if not waiting:
                      continue
                  owner = self._audio_owner
-@@ -2937,6 +3146,10 @@
+@@ -2937,6 +3168,10 @@
  
      async def _gift_say(self, batch: list[dict]) -> None:
          """合并播报: 生成一句话 → **先合成出音频**(趁她还在说上一句) → 等歌完/等当前说完 → 无缝插入。"""
@@ -475,7 +508,7 @@ diff --git a/src/engine.py b/src/engine.py
          cfg = self._gift_cfg()
          names: list[str] = []
          for e in batch:
-@@ -2964,7 +3177,7 @@
+@@ -2964,7 +3199,7 @@
                  await asyncio.sleep(0.4)
          if not self._ws_ok() or not pcm:
              return
@@ -484,7 +517,7 @@ diff --git a/src/engine.py b/src/engine.py
              return
          try:
              evt = asyncio.Event()
-@@ -3065,6 +3278,8 @@
+@@ -3065,6 +3300,8 @@
              },
              "dan": {"worker_alive": bool(self._dan_task is not None and not self._dan_task.done()),
                      "buf": len(self._dan_buf), "vip": len(self._dan_vipq),

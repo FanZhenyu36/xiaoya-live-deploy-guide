@@ -155,7 +155,7 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.e.enqueue_danmaku('第一题',nick='甲',content='第一题')
         self.e.enqueue_danmaku('第二题',priority='vip',nick='乙',content='第二题')
         await asyncio.wait_for(self.e._dan_task,2)
-        self.assertEqual(self.played[:2],['第一题的完整回答。','第二题的完整回答。'])
+        self.assertEqual(self.played[:2],['甲，第一题的完整回答。','乙，第二题的完整回答。'])
         self.assertIn('欢迎新朋友',self.played[2])
 
     async def test_question_arriving_during_welcome_synthesis_is_played_first(self):
@@ -174,7 +174,7 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.e.enqueue_danmaku('第一题',nick='甲',content='第一题')
         release.set()
         await asyncio.wait_for(worker,2)
-        self.assertEqual(self.played[0],'第一题的完整回答。')
+        self.assertEqual(self.played[0],'甲，第一题的完整回答。')
         self.assertIn('欢迎新朋友',self.played[1])
 
     async def test_join_is_displayed_once_and_not_answered_by_llm(self):
@@ -184,6 +184,36 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         joins = [x for x in self.e.transcripts if x['role']=='join']
         self.assertEqual(len(joins),1)
         self.assertEqual(self.e.llm.prompts,[])
+
+    async def test_nickname_and_first_answer_share_one_audio_chunk_without_reading_question(self):
+        async def answer(text,record=True):
+            yield '记得早点休息。也可以喝点水。'
+        self.e.llm.stream = answer
+        self.e.enqueue_danmaku('怎样保持精力？',nick='小明',content='怎样保持精力？')
+        await asyncio.wait_for(self.e._dan_task,2)
+        self.assertEqual(self.played,['小明，记得早点休息。','也可以喝点水。'])
+        self.assertNotIn('怎样保持精力', ''.join(self.played))
+
+    async def test_model_address_is_not_repeated(self):
+        async def answer(text,record=True):
+            yield '小明，你可以先休息一下。'
+        self.e.llm.stream = answer
+        self.e.enqueue_danmaku('好累怎么办？',nick='小明',content='好累怎么办？')
+        await asyncio.wait_for(self.e._dan_task,2)
+        self.assertEqual(self.played,['小明，你可以先休息一下。'])
+
+    async def test_missing_nickname_does_not_read_account_id(self):
+        self.e.enqueue_danmaku('第一题',content='第一题')
+        await asyncio.wait_for(self.e._dan_task,2)
+        self.assertEqual(self.played,['第一题的完整回答。'])
+
+    async def test_nickname_prefix_does_not_confuse_word_with_address(self):
+        self.assertEqual(self.e._dan_answer_with_nick(['小时候也要按时休息。'],{'nick':'小'}),
+                         ['小，小时候也要按时休息。'])
+
+    async def test_nickname_control_characters_are_removed(self):
+        self.assertEqual(self.e._dan_answer_with_nick(['可以呀。'],{'nick':'小\n明\u202e'}),
+                         ['小明，可以呀。'])
 
     async def test_interrupt_waits_for_current_sentence_and_never_sends_clear_buffer(self):
         started,release = asyncio.Event(),asyncio.Event()

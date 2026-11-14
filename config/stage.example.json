@@ -64,7 +64,8 @@
     "batch": {
       "enabled": false,
       "read_max": 0
-    }
+    },
+    "answer_call_nick": true
   },
   "session": {
     "finish_sentence_before_interrupt": true
