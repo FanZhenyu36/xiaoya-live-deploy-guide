@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $stage '.git'))) {
 $head = (git -C $stage rev-parse HEAD).Trim()
 Assert-Exit 'Read stage revision'
 if ($head -ne $commit) { throw 'Unexpected upstream version. Use a new runtime directory; existing files were preserved.' }
-$patchNames = @('speech-completion.patch')
+$patchNames = @('speech-completion.patch', 'audience-queue.patch')
 if (-not $OriginalUI) { $patchNames = @('silver-studio.patch') + $patchNames }
 foreach ($patchName in $patchNames) {
     $patch = Join-Path (Join-Path $GuideRoot 'overlays') $patchName

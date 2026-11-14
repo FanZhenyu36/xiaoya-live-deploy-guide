@@ -4,7 +4,7 @@
 
 **这是个人整理的教程、安装脚本与界面补丁，不是上游官方发行版。** 数字人主程序来自 [cyber-xiaoya/cyber-xiaoya-live](https://github.com/cyber-xiaoya/cyber-xiaoya-live)，作者为天工开帧。许可证、修改说明及素材边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-整理日期：**2026-11-13**。基于一台 RTX 5060 Ti 16GB 电脑的实际搭建记录。依赖版本锁定在当时可工作的组合；其他显卡或将来的上游版本需要重新验证。安装脚本经过语法、配置保护、模型路径及补丁应用检查，**不是承诺所有电脑一键安装必成功**。验证范围见 [VALIDATION.md](VALIDATION.md)。
+整理日期：**2026-11-14**。基于一台 RTX 5060 Ti 16GB 电脑的实际搭建记录。依赖版本锁定在当时可工作的组合；其他显卡或将来的上游版本需要重新验证。安装脚本经过语法、配置保护、模型路径及补丁应用检查，**不是承诺所有电脑一键安装必成功**。验证范围见 [VALIDATION.md](VALIDATION.md)。
 
 ## 目录
 
@@ -329,7 +329,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Instal
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Install-Stage.ps1 -OriginalUI
 ```
 
-`-OriginalUI` 表示不应用补丁，不会擅自撤销已安装的自定义界面。已有配置不会被模板覆盖；遇到不同版本或已修改文件会中止，不会替你强制重置。
+`-OriginalUI` 表示仅跳过银白界面补丁，仍安装语音完整性和弹幕保序补丁，不会擅自撤销已安装的自定义界面。已有配置不会被模板覆盖；遇到不同版本或已修改文件会中止，不会替你强制重置。
 
 **成功标志：** 出现 `[OK] Installed`。这时服务还没启动，Key 仍为空。
 
@@ -514,6 +514,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Stop-S
 | [scripts/wsl](scripts/wsl) | Ubuntu 安装、模型查找、加速启动 |
 | [config](config) | 不含私密数据的模板 |
 | [overlays/silver-studio.patch](overlays/silver-studio.patch) | 工作台界面补丁，基于固定上游提交 |
+| [overlays/audience-queue.patch](overlays/audience-queue.patch) | 弹幕逐条保序、入场欢迎、问题优先、句尾打断 |
 | [overlays/speech-completion.patch](overlays/speech-completion.patch) | 防止尾句拆字、回答被截断，合并过短语音尾块 |
 | [VERSIONS.md](VERSIONS.md) | 版本来源与已知工作环境 |
 

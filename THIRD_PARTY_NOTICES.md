@@ -37,3 +37,5 @@ requirements.txt 与各依赖仓库。
 官方唯一发布渠道：https://github.com/cyber-xiaoya/cyber-xiaoya-live
 
 ```
+
+2026-11-14：更新银白界面中的入场提示、排队计数及设置说明；新增 `audience-queue.patch`，修改弹幕转发、队列调度和完整句边界，增加 `src/audience.py`。该源码补丁与对应回归测试同样采用 AGPL-3.0。

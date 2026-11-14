@@ -27,3 +27,20 @@ jobs:
             if ($errors.Count) { $errors | Write-Output; $failed = $true }
           }
           if ($failed) { exit 1 }
+  stage-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare pinned upstream and patches
+        run: |
+          git clone --no-checkout https://github.com/cyber-xiaoya/cyber-xiaoya-live.git "$RUNNER_TEMP/stage"
+          git -C "$RUNNER_TEMP/stage" checkout --detach c0effaf50d2bbf9dcfde8847a853c5c871d9dee4
+          for patch in silver-studio speech-completion audience-queue; do
+            git -C "$RUNNER_TEMP/stage" apply "$GITHUB_WORKSPACE/overlays/$patch.patch"
+          done
+      - run: python -m pip install -r requirements/stage-win-py312.lock.txt
+      - name: Run speech and audience tests without cloud calls
+        run: PYTHONPATH="$RUNNER_TEMP/stage" python -m unittest discover -s tests_stage -v

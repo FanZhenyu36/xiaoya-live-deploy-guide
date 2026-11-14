@@ -1,5 +1,4 @@
 diff --git a/stage/index.html b/stage/index.html
-index 91eb578..13f04be 100644
 --- a/stage/index.html
 +++ b/stage/index.html
 @@ -3,7 +3,7 @@
@@ -11,7 +10,7 @@ index 91eb578..13f04be 100644
  <!-- 阿里 ARTC Web SDK(managed_rtc 默认 provider; 客户模式 artc 也用它) -->
  <script src="https://g.alicdn.com/apsara-media-box/imp-web-rtc/7.1.9/aliyun-rtc-sdk.js"></script>
  <style>
-@@ -46,13 +46,8 @@ button.ghost{background:transparent}
+@@ -46,13 +46,8 @@
  /* 未连线底图: 上一次连线数字人的原始图(纯显示层, 不参与任何连线逻辑; 连线即隐藏) */
  #avatarStill{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
    background:transparent; user-select:none; pointer-events:none}
@@ -27,7 +26,7 @@ index 91eb578..13f04be 100644
  /* ⏺ 自动录播开关(2026-10-23, 2026-10-23 二次改: 开/关必须有肉眼级差异)
     关 = 空心灰点 + 描边灰字 + 灰底;开 = 实心红底 + 白字 + 白色实心点 + 呼吸光环。
     两种状态连"形状"都不同(描边 vs 实心块), 扫一眼就能区分, 不靠猜颜色。 */
-@@ -100,7 +95,12 @@ button.ghost{background:transparent}
+@@ -100,7 +95,12 @@
  .tr b{color:var(--acc); font-weight:600}
  
  /* ── 底栏 ── */
@@ -41,7 +40,7 @@ index 91eb578..13f04be 100644
  #txt{flex:1; background:#0d1526; border:1px solid var(--line); color:var(--txt); border-radius:10px;
    padding:10px 12px; font-size:14px; outline:none}
  #txt:focus{border-color:#3b82f6}
-@@ -429,87 +429,341 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
+@@ -429,87 +429,348 @@
  #statsBar .stbump{ animation:stBump .62s cubic-bezier(.22,1,.36,1); display:inline-block; will-change:transform }
  #statsBar span[id^="st"]{ transition:color .35s ease }
  
@@ -208,6 +207,12 @@ index 91eb578..13f04be 100644
 +#statsBar .stats-main{font-size:14px;font-weight:400}
 +#statsBar .stats-details{font-size:10px;color:#f1f1f3}
 +#statsBar .stats-label{color:#fff}
++#joinNotice{position:absolute;left:18px;bottom:18px;max-width:min(58%,460px);z-index:48;
++  padding:9px 13px;border:1px solid #ffffff26;border-radius:12px;background:#19191d70;
++  color:#fff;font-size:13px;line-height:1.5;backdrop-filter:blur(12px);pointer-events:none;
++  opacity:0;transform:translateY(5px);transition:opacity .2s,transform .2s}
++#joinNotice.visible{opacity:1;transform:translateY(0)}
++.tr.join{align-self:center;background:#eff6ff;color:#3571a6;font-size:12px;padding:6px 11px;border-radius:10px}
 +#statsBar:focus-visible{outline-color:#0071e3}
 +/* Existing drawers retain their controls, with the same light material. */
 +#drawer,#songs,#cmds,#vpanel,#refs,#koubo,#choreo{background:#fff;border:0;color:#1d1d1f}
@@ -339,21 +344,12 @@ index 91eb578..13f04be 100644
 -      <span id="stMemory" style="font-size:16px; font-weight:700; color:#eafff6">15/15</span></div>
 -  </div>
 -</div>
--<div id="lyricBox" style="display:none"></div>
--  <div id="capOverlay" style="display:none"><div class="capInner"></div></div>
--      <div id="mask">
--        <h2>▶ 连线数字人</h2>
--        <div class="cap" id="maskCap">组件版：Vidu 只做渲染推流，LLM / TTS 全在本机。<br>默认平台托管 RTC 频道，无需自备。</div>
--        <div class="maskRow">
--          <button class="primary" id="btnGo" style="font-size:15px; padding:10px 26px">开始连线</button>
--          <button id="btnRec" title="开播时让 Vidu 服务端录播，播完自动下载到本地（建会话时生效）">⏺ 自动录播：关</button>
--          <button id="btnRecFetch" title="手动再拉一次服务端录播（自动等待超时 / 没抓到的时候点一下）">↻ 拉取录播</button>
 +      <div id="statsBar" style="display:none" role="group" tabindex="0" aria-label="直播统计字幕，可拖动，双击回到右下角">
 +        <div class="stats-line stats-main">
 +          <span><span class="stats-label">Token </span><span id="stTokens" class="stats-value">0</span></span>
 +          <span class="stats-sep" aria-hidden="true">·</span>
 +          <span><span class="stats-label">积分 </span><span id="stCredits" class="stats-value">0</span></span>
-         </div>
++        </div>
 +        <div class="stats-line">
 +          <span><span class="stats-label">礼物 </span><span id="stGifts" class="stats-value">0 份</span></span>
 +          <span class="stats-sep" aria-hidden="true">·</span>
@@ -362,9 +358,19 @@ index 91eb578..13f04be 100644
 +          <span><span class="stats-label">记忆 </span><span id="stMemory" class="stats-value">15/15 轮</span></span>
 +        </div>
 +        <div id="stCalls" class="stats-details">0 次调用</div>
-       </div>
-+<div id="lyricBox" style="display:none"></div>
-+  <div id="capOverlay" style="display:none"><div class="capInner"></div></div>
++      </div>
+ <div id="lyricBox" style="display:none"></div>
+   <div id="capOverlay" style="display:none"><div class="capInner"></div></div>
+-      <div id="mask">
+-        <h2>▶ 连线数字人</h2>
+-        <div class="cap" id="maskCap">组件版：Vidu 只做渲染推流，LLM / TTS 全在本机。<br>默认平台托管 RTC 频道，无需自备。</div>
+-        <div class="maskRow">
+-          <button class="primary" id="btnGo" style="font-size:15px; padding:10px 26px">开始连线</button>
+-          <button id="btnRec" title="开播时让 Vidu 服务端录播，播完自动下载到本地（建会话时生效）">⏺ 自动录播：关</button>
+-          <button id="btnRecFetch" title="手动再拉一次服务端录播（自动等待超时 / 没抓到的时候点一下）">↻ 拉取录播</button>
+-        </div>
+-      </div>
++      <div id="joinNotice" role="status" aria-live="polite"></div>
        <div id="sessLog"></div>
        <div id="cmdFx"></div>
        <div id="soundHint">🔇 点击画面开启声音</div>
@@ -400,7 +406,7 @@ index 91eb578..13f04be 100644
 +          <button id="btnKoubo" title="口播稿、合成与连播"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>口播工作台</span></button>
 +        </div>
 +      </div>
-+      <div class="head"><span>对话 <small>字幕与事件</small></span><span class="kbd">实时同步</span></div>
++      <div class="head"><span>对话 <small>字幕与事件</small></span><span class="kbd" id="audienceQueueState">实时同步</span></div>
        <div id="trList"></div>
 +      <div class="chat-composer">
 +        <div class="chat-input-row">
@@ -442,7 +448,30 @@ index 91eb578..13f04be 100644
  </div>
  
  <div id="vpanel">
-@@ -836,6 +1090,13 @@ window.addEventListener("unhandledrejection", e => {
+@@ -716,7 +977,7 @@
+       <div class="row"><input type="text" id="ptNote" placeholder="备注，例：老观众，爱听老歌" style="flex:1">
+         <button id="btnPtTest" class="ghost">🔊 测试欢迎</button></div>
+       <div id="ptList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+-      <div class="hint">名单存 data/patrons.json；朗读器只在名单内昵称进场时通知桥（不转发全部进场）。</div>
++      <div class="hint">会员名单保留专属称呼；抖音采集器会转发普通观众入场。欢迎在问题回答后播报，同一观众短时间重复进入会自动去重。</div>
+     </div>
+ 
+     <div class="sect"><h3>🎭 人设（多套并存 · personas/ 目录）</h3>
+@@ -804,10 +1065,10 @@
+ 
+     <div class="sect"><h3>弹幕主播模式</h3>
+       <div class="row"><label>播报间隔(秒)</label>
+-        <input type="number" id="s_dan_interval" min="3" max="300" step="1" style="width:90px"></div>
+-      <div class="row"><label>VIP 间隔(秒)</label>
++        <input type="number" id="s_dan_interval" min="0" max="300" step="1" style="width:90px"></div>
++      <div class="row"><label>旧模式 VIP 间隔(秒)</label>
+         <input type="number" id="s_dan_vip_interval" min="1" max="300" step="1" style="width:90px"></div>
+-      <div class="hint"><b>优先级：歌曲 &gt; 打字聊天 &gt; 弹幕</b>——歌在播时弹幕和聊天回复都排队，等歌放完（或点「⏹ 停止演唱」）才继续。<br>节奏：每 N 秒挑<b>最新一条</b>弹幕 → 复读 → LLM <b>完整回答</b>喂给数字人 → <b>说完才轮到下一条</b>（中间弹幕被顶掉，不积压）。<br><b>送礼观众的弹幕优先插队</b>，但同样遵守自己的 VIP 间隔（默认 5 秒）；仍不打断歌曲。点「保存设置」即时生效。</div>
++      <div class="hint"><b>按收到的顺序逐条回答问题</b>，默认不复读原文，后来的弹幕不会插队；VIP 间隔仅供旧模式使用。<br><b>问题优先于入场欢迎、礼物感谢和空闲搭话</b>。有人进入时，画面底部先显示「（昵称）来了，欢迎～」，有空再口头欢迎。<br>正常打断会先说完当前句；歌曲和主播操作保留原有控制权，「停止演唱」及挂断立即生效。点「保存设置」即时生效。</div>
+     </div>
+ 
+     <div class="sect"><h3>其他</h3>
+@@ -836,6 +1097,13 @@
  const state = {liveId:null, rtc:null, joined:false, engine:null, rtcKind:"", since:0,
                 pollTimer:null, timerTimer:null, startedAt:0, phase:"idle"};
  
@@ -456,7 +485,7 @@ index 91eb578..13f04be 100644
  function toast(msg, bad){
    const d = document.createElement("div");
    d.className = "toast" + (bad ? " bad" : "");
-@@ -853,12 +1114,22 @@ function trAdd(role, text, key){
+@@ -853,18 +1121,35 @@
    if (key != null){ if (trAdd._seen === undefined) trAdd._seen = new Set();
      if (trAdd._seen.size > 8000) trAdd._seen.clear();   // 长跑防膨胀(2026-10-13): 纯去重缓存, 清掉最多重画一条
      if (trAdd._seen.has(key)) return; trAdd._seen.add(key); }
@@ -482,7 +511,28 @@ index 91eb578..13f04be 100644
      d.append(b, document.createTextNode(text));
    } else { d.textContent = text; }
    const list = $("trList");
-@@ -1069,6 +1340,7 @@ async function start(){
+   list.appendChild(d);
+   while (list.children.length > 300) list.removeChild(list.firstChild);
+   list.scrollTop = list.scrollHeight;
++  if (role === "join"){
++    const notice = $("joinNotice");
++    notice.textContent = String(text || "");
++    notice.classList.add("visible");
++    clearTimeout(trAdd._joinTimer);
++    trAdd._joinTimer = setTimeout(()=>notice.classList.remove("visible"), 6000);
++  }
+   capPush(role, text);          // 同步一份到画面内覆盖层(推流可见)
+   if (role === "sys") sessAdd(text);   // 同步一份到视频容器底部会话日志条(推流可见)
+ }
+@@ -978,6 +1263,7 @@
+ }
+ window.addEventListener("resize", ()=>{ capRender(); });
+ function capPush(role, text){
++  if (role === "join") return;  // 入场使用独立底部提示，不挤掉回答字幕。
+   if (role === "srv") return;                     // RTC 技术事件不上画面(噪音)
+   if (!capCfg.on || capSuppressed) return;        // 放歌中/整层关闭 → 不收
+   if (role === "sys") return;                     // sys 事件(推流端已上线/已加入RTC频道/会话创建/点播…)不上画面中央,
+@@ -1069,6 +1355,7 @@
    if (state.busy) return;
    state.busy = true;
    $("btnGo").disabled = true;
@@ -490,7 +540,7 @@ index 91eb578..13f04be 100644
    $("maskCap").textContent = "正在创建会话…";
    try{
      const res = await api("/api/live/start", {method:"POST", body:JSON.stringify({})});
-@@ -1084,6 +1356,8 @@ async function start(){
+@@ -1084,6 +1371,8 @@
      toast("连线失败: " + (e.message||e), true);
    }finally{
      state.busy = false;
@@ -499,7 +549,7 @@ index 91eb578..13f04be 100644
    }
  }
  
-@@ -1232,7 +1506,7 @@ let FX_ON = (_fxq === "0") ? false : ((_fxq === "1") ? true : (localStorage.getI
+@@ -1232,7 +1521,7 @@
  function fxApply(){
    const box = $("cmdFx"), pill = $("fxPill");
    if (box) box.style.display = FX_ON ? "" : "none";
@@ -508,7 +558,7 @@ index 91eb578..13f04be 100644
    if (!FX_ON) cmdFxClear();
  }
  function fxToggle(){
-@@ -1485,7 +1759,7 @@ let STATS_ON = (localStorage.getItem("s2s.stage.stats") !== "0");
+@@ -1485,7 +1774,7 @@
  function statsApply(){
    const bar = $("statsBar"), pill = $("statsPill");
    if (bar) bar.style.display = STATS_ON ? "flex" : "none";
@@ -517,7 +567,7 @@ index 91eb578..13f04be 100644
               pill.style.opacity = STATS_ON ? "1" : ".55"; }
  }
  
-@@ -1540,7 +1814,7 @@ function renderStats(st){
+@@ -1540,7 +1829,7 @@
    const mem = s.memory || {};
    const cr = (s.credits) || {};
    const el = (id) => $(id);
@@ -526,7 +576,7 @@ index 91eb578..13f04be 100644
    const plain = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
    if (el("stTokens")) stSetNum("stTokens", "tokens", tk.total, "");
    if (el("stCredits")) stSetNum("stCredits", "credits", cr.spent, "");
-@@ -1556,81 +1830,97 @@ function renderStats(st){
+@@ -1556,81 +1845,97 @@
  
  }
  
@@ -579,9 +629,10 @@ index 91eb578..13f04be 100644
 -  el.style.cursor = "grab";
 -  el.style.userSelect = "none";
 -  el.title = "可以拖动到我想要的任意位置（双击复位）";
-+  el.title = "拖动调整位置；双击或 Home 回到右下角；方向键微调";
- 
+-
 -  let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
++  el.title = "拖动调整位置；双击或 Home 回到右下角；方向键微调";
++
 +  let sx = 0, sy = 0, ox = 0, oy = 0;
    el.addEventListener("pointerdown", (ev)=>{
 -    if (ev.button !== 0) return;
@@ -666,7 +717,18 @@ index 91eb578..13f04be 100644
    if (!STATS_ON) return;
    statsInitDrag(); statsApplyPos();
    api("/api/live/status").then(renderStats).catch(()=>{});
-@@ -1707,7 +1997,7 @@ async function poll(){
+@@ -1655,6 +1960,10 @@
+     state.phase = st.phase;
+     renderVipBadge(st);
+     renderStats(st);
++    if (st.dan){
++      const pending = Number(st.dan.buf || 0), welcomes = Number(st.dan.welcomes || 0);
++      $("audienceQueueState").textContent = pending || welcomes ? `待答 ${pending} · 欢迎 ${welcomes}` : "实时同步";
++    }
+     const pill = $("phasePill");
+     pill.className = "pill " + (st.active ? "live" : (st.error ? "err" : ""));
+     pill.textContent = st.active ? (st.mode === "managed" ? "直播中 · 托管RTC" : "直播中 · 自备RTC")
+@@ -1707,7 +2016,7 @@
      fxWasActive = !!st.active;
      const vp = $("voicePill");
      vp.style.display = "";
@@ -675,7 +737,7 @@ index 91eb578..13f04be 100644
      if (st.transcripts_total != null && st.transcripts_total < state.since) state.since = 0;   // 桥重启过(tr_total 归零) → 游标重置, 否则新字幕全被旧游标挡掉(2026-10-13)
      if (st.new_transcripts) for (const t of st.new_transcripts){ state.since = Math.max(state.since, t.i); trAdd(t.role, t.text, t.role + ":" + t.i); }
      if (!st.active && state.liveId){
-@@ -1731,6 +2021,7 @@ function resetUi(){
+@@ -1731,6 +2040,7 @@
    showAvatarStill(true);
    $("maskCap").textContent = "已结束。点「开始连线」重新开一场。";
    $("btnGo").disabled = false;
@@ -683,7 +745,25 @@ index 91eb578..13f04be 100644
    $("timerPill").style.display = "none";
    leaveRtc();
  }
-@@ -3108,7 +3399,7 @@ $("rightPanel").appendChild($("choreo"));
+@@ -2610,7 +2920,7 @@
+ $("btnVoiceRefresh").addEventListener("click", loadVoices);
+ 
+ $("btnItt").addEventListener("click", async ()=>{
+-  try{ await api("/api/interrupt", {method:"POST"}); toast("已打断"); }
++  try{ const r = await api("/api/interrupt", {method:"POST"}); toast(r.deferred ? "将在当前句说完后打断" : "已打断"); }
+   catch(e){ toast("打断失败: " + (e.message||e), true); }
+ });
+ 
+@@ -3014,7 +3324,7 @@
+     avatar: {avatar_id: $("s_avatar_id").value.trim() || null},
+     action: {enabled: $("s_act_en").checked,
+              library_id: $("s_act_lib").value || "0"},
+-    danmaku: {read_interval_ms: Math.max(3, Math.round(+$("s_dan_interval").value || 20)) * 1000,
++    danmaku: {read_interval_ms: Math.max(0, Math.min(300, Math.round(Number($("s_dan_interval").value) || 0))) * 1000,
+               vip_min_interval_ms: Math.max(1, Math.round(+$("s_dan_vip_interval").value || 5)) * 1000},
+     stage: {cap_overlay: $("s_cap_on").checked,
+             cap_offset_px: Math.max(0, Math.round(+$("s_cap_off").value || 200)),
+@@ -3108,7 +3418,7 @@
  (function stageSplit(){
    const main = $("main"), sp = $("splitter"), panel = $("rightPanel");
    if (!main || !sp || !panel) return;
@@ -692,7 +772,7 @@ index 91eb578..13f04be 100644
    let folded = false, lastW = DEF, dragging = false;
    const maxW = () => Math.min(window.innerWidth * 0.75, window.innerWidth - 320);
    function apply(w){
-@@ -3136,7 +3427,7 @@ $("rightPanel").appendChild($("choreo"));
+@@ -3136,7 +3446,7 @@
      try{ sp.setPointerCapture(e.pointerId); }catch(_){}
      main.classList.add("dragging"); e.preventDefault();
    });
@@ -701,7 +781,7 @@ index 91eb578..13f04be 100644
    sp.addEventListener("pointerup", e => {
      if (!dragging) return;
      dragging = false; main.classList.remove("dragging");
-@@ -3144,16 +3435,18 @@ $("rightPanel").appendChild($("choreo"));
+@@ -3144,16 +3454,18 @@
      save(curW()); rerender();
    });
    sp.addEventListener("dblclick", () => { const w = apply(DEF); save(w); rerender(); toast("右栏宽度已复位 " + w + "px"); });
