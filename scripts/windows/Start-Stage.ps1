@@ -3,6 +3,7 @@ param([switch]$NoBrowser, [switch]$Foreground)
 $s = Get-GuideSettings
 Set-LocalEnvironment
 $stage = [IO.Path]::GetFullPath($s.stage_root)
+& "$PSScriptRoot\Start-ASR.ps1"
 $python = Join-Path $stage '.venv\Scripts\python.exe'
 $port = [int]$s.stage_port
 $url = "http://127.0.0.1:$port/stage"

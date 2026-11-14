@@ -10,7 +10,18 @@ diff --git a/stage/index.html b/stage/index.html
  <!-- 阿里 ARTC Web SDK(managed_rtc 默认 provider; 客户模式 artc 也用它) -->
  <script src="https://g.alicdn.com/apsara-media-box/imp-web-rtc/7.1.9/aliyun-rtc-sdk.js"></script>
  <style>
-@@ -46,13 +46,8 @@
+@@ -16,6 +16,10 @@
+ body{background:radial-gradient(1200px 700px at 70% -10%, #14203a 0%, var(--bg) 55%);
+   color:var(--txt); font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; overflow:hidden}
+ #app{display:flex; flex-direction:column; height:100%}
++#btnMicCancel[hidden]{display:none}
++.mic-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px}
++.mic-controls button{font-size:12px;padding:8px 10px}
++#micStatus{flex:1 1 110px;min-width:0;font-size:11px;line-height:1.5;color:var(--dim);overflow-wrap:anywhere}
+ 
+ /* ── 顶栏 ── */
+ #top{display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line)}
+@@ -46,13 +50,8 @@
  /* 未连线底图: 上一次连线数字人的原始图(纯显示层, 不参与任何连线逻辑; 连线即隐藏) */
  #avatarStill{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
    background:transparent; user-select:none; pointer-events:none}
@@ -26,7 +37,7 @@ diff --git a/stage/index.html b/stage/index.html
  /* ⏺ 自动录播开关(2026-10-23, 2026-10-23 二次改: 开/关必须有肉眼级差异)
     关 = 空心灰点 + 描边灰字 + 灰底;开 = 实心红底 + 白字 + 白色实心点 + 呼吸光环。
     两种状态连"形状"都不同(描边 vs 实心块), 扫一眼就能区分, 不靠猜颜色。 */
-@@ -100,7 +95,12 @@
+@@ -100,7 +99,12 @@
  .tr b{color:var(--acc); font-weight:600}
  
  /* ── 底栏 ── */
@@ -40,7 +51,7 @@ diff --git a/stage/index.html b/stage/index.html
  #txt{flex:1; background:#0d1526; border:1px solid var(--line); color:var(--txt); border-radius:10px;
    padding:10px 12px; font-size:14px; outline:none}
  #txt:focus{border-color:#3b82f6}
-@@ -429,87 +429,348 @@
+@@ -429,87 +433,349 @@
  #statsBar .stbump{ animation:stBump .62s cubic-bezier(.22,1,.36,1); display:inline-block; will-change:transform }
  #statsBar span[id^="st"]{ transition:color .35s ease }
  
@@ -414,6 +425,7 @@ diff --git a/stage/index.html b/stage/index.html
 +          <button class="primary" id="btnSend" title="发送消息">发送</button>
 +        </div>
 +        <div class="composer-caption"><span>文字互动</span><span>Enter 发送</span></div>
++        <div class="mic-controls"><button id="btnMic" title="麦克风聊天优先；点击录音，再点结束发送">🎙 麦克风</button><button id="btnMicCancel" class="ghost" hidden>取消录音</button><span id="micStatus" role="status" aria-live="polite">麦克风优先 · 建议戴耳机</span></div>
 +      </div>
      </div>
    </div>
@@ -448,7 +460,7 @@ diff --git a/stage/index.html b/stage/index.html
  </div>
  
  <div id="vpanel">
-@@ -716,7 +977,7 @@
+@@ -716,7 +982,7 @@
        <div class="row"><input type="text" id="ptNote" placeholder="备注，例：老观众，爱听老歌" style="flex:1">
          <button id="btnPtTest" class="ghost">🔊 测试欢迎</button></div>
        <div id="ptList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
@@ -457,7 +469,7 @@ diff --git a/stage/index.html b/stage/index.html
      </div>
  
      <div class="sect"><h3>🎭 人设（多套并存 · personas/ 目录）</h3>
-@@ -724,7 +985,7 @@
+@@ -724,7 +990,7 @@
          <select id="s_persona" style="flex:1"></select>
          <button id="btnPersonaApply" class="ghost">应用</button>
          <button id="btnPersonaReload" class="ghost">刷新</button></div>
@@ -466,7 +478,7 @@ diff --git a/stage/index.html b/stage/index.html
        <div class="hint" id="personaHint">切换后下一条回复生效；对话记忆会清空。</div>
      </div>
  
-@@ -735,7 +996,8 @@
+@@ -735,7 +1001,8 @@
        <div class="row"><label>temperature</label><input type="number" id="s_llm_temp" step="0.1" min="0" max="2">
          <label>max_tokens</label><input type="number" id="s_llm_maxtok" min="50" step="50"></div>
        <div class="row"><label>人设 system<span id="llmSysHint" style="color:var(--dim);font-weight:400"></span></label></div>
@@ -476,7 +488,7 @@ diff --git a/stage/index.html b/stage/index.html
        <div class="row"><button id="btnLlmReset" class="ghost">清空对话记忆</button></div>
      </div>
  
-@@ -804,10 +1066,10 @@
+@@ -804,10 +1071,10 @@
  
      <div class="sect"><h3>弹幕主播模式</h3>
        <div class="row"><label>播报间隔(秒)</label>
@@ -486,11 +498,11 @@ diff --git a/stage/index.html b/stage/index.html
 +      <div class="row"><label>旧模式 VIP 间隔(秒)</label>
          <input type="number" id="s_dan_vip_interval" min="1" max="300" step="1" style="width:90px"></div>
 -      <div class="hint"><b>优先级：歌曲 &gt; 打字聊天 &gt; 弹幕</b>——歌在播时弹幕和聊天回复都排队，等歌放完（或点「⏹ 停止演唱」）才继续。<br>节奏：每 N 秒挑<b>最新一条</b>弹幕 → 复读 → LLM <b>完整回答</b>喂给数字人 → <b>说完才轮到下一条</b>（中间弹幕被顶掉，不积压）。<br><b>送礼观众的弹幕优先插队</b>，但同样遵守自己的 VIP 间隔（默认 5 秒）；仍不打断歌曲。点「保存设置」即时生效。</div>
-+      <div class="hint"><b>按收到的顺序逐条回答问题</b>，默认不复读原文，后来的弹幕不会插队；VIP 间隔仅供旧模式使用。<br><b>问题优先于入场欢迎、礼物感谢和空闲搭话</b>。有人进入时，画面底部先显示「（昵称）来了，欢迎～」，有空再口头欢迎。<br>正常打断会先说完当前句；歌曲和主播操作保留原有控制权，「停止演唱」及挂断立即生效。点「保存设置」即时生效。</div>
++      <div class="hint"><b>麦克风对话优先级最高</b>，录音、识别和回答期间弹幕等待，歌曲停止让位。<br><b>弹幕按收到的顺序逐条回答</b>，先称呼昵称，不复读问题；VIP 不插队。问题优先于入场欢迎、礼物感谢和空闲搭话。<br>正常抢话先说完当前句；「停止演唱」及挂断立即生效。点「保存设置」即时生效。</div>
      </div>
  
      <div class="sect"><h3>其他</h3>
-@@ -836,6 +1098,13 @@
+@@ -836,6 +1103,13 @@
  const state = {liveId:null, rtc:null, joined:false, engine:null, rtcKind:"", since:0,
                 pollTimer:null, timerTimer:null, startedAt:0, phase:"idle"};
  
@@ -504,7 +516,7 @@ diff --git a/stage/index.html b/stage/index.html
  function toast(msg, bad){
    const d = document.createElement("div");
    d.className = "toast" + (bad ? " bad" : "");
-@@ -853,18 +1122,35 @@
+@@ -853,18 +1127,35 @@
    if (key != null){ if (trAdd._seen === undefined) trAdd._seen = new Set();
      if (trAdd._seen.size > 8000) trAdd._seen.clear();   // 长跑防膨胀(2026-10-13): 纯去重缓存, 清掉最多重画一条
      if (trAdd._seen.has(key)) return; trAdd._seen.add(key); }
@@ -543,7 +555,7 @@ diff --git a/stage/index.html b/stage/index.html
    capPush(role, text);          // 同步一份到画面内覆盖层(推流可见)
    if (role === "sys") sessAdd(text);   // 同步一份到视频容器底部会话日志条(推流可见)
  }
-@@ -978,6 +1264,7 @@
+@@ -978,6 +1269,7 @@
  }
  window.addEventListener("resize", ()=>{ capRender(); });
  function capPush(role, text){
@@ -551,7 +563,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (role === "srv") return;                     // RTC 技术事件不上画面(噪音)
    if (!capCfg.on || capSuppressed) return;        // 放歌中/整层关闭 → 不收
    if (role === "sys") return;                     // sys 事件(推流端已上线/已加入RTC频道/会话创建/点播…)不上画面中央,
-@@ -1069,6 +1356,7 @@
+@@ -1069,6 +1361,7 @@
    if (state.busy) return;
    state.busy = true;
    $("btnGo").disabled = true;
@@ -559,7 +571,7 @@ diff --git a/stage/index.html b/stage/index.html
    $("maskCap").textContent = "正在创建会话…";
    try{
      const res = await api("/api/live/start", {method:"POST", body:JSON.stringify({})});
-@@ -1084,6 +1372,8 @@
+@@ -1084,6 +1377,8 @@
      toast("连线失败: " + (e.message||e), true);
    }finally{
      state.busy = false;
@@ -568,7 +580,7 @@ diff --git a/stage/index.html b/stage/index.html
    }
  }
  
-@@ -1104,6 +1394,38 @@
+@@ -1104,6 +1399,38 @@
    return joinArtc(rtc);
  }
  
@@ -607,7 +619,7 @@ diff --git a/stage/index.html b/stage/index.html
  async function joinArtc(rtc){
    if (!window.AliRtcEngine){ toast("AliRTC SDK 未加载（g.alicdn.com 可达性？）", true); return; }
    let supported;
-@@ -1113,20 +1435,15 @@
+@@ -1113,20 +1440,15 @@
    try{ window.AliRtcEngine.setLogLevel(0); }catch(e){}
    const engine = window.AliRtcEngine.getInstance();
    state.engine = engine; state.rtcKind = "artc";
@@ -632,7 +644,7 @@ diff --git a/stage/index.html b/stage/index.html
    // viewer 只订阅不推流(上行音频走桥的 WS, 不经 RTC)
    const call = async (m, ...a)=>{ if (typeof engine[m] === "function") await engine[m](...a); };
    try{ await call("setChannelProfile", "communication"); }catch(e){}
-@@ -1232,7 +1549,7 @@
+@@ -1232,7 +1554,7 @@
  function fxApply(){
    const box = $("cmdFx"), pill = $("fxPill");
    if (box) box.style.display = FX_ON ? "" : "none";
@@ -641,7 +653,7 @@ diff --git a/stage/index.html b/stage/index.html
    if (!FX_ON) cmdFxClear();
  }
  function fxToggle(){
-@@ -1485,7 +1802,7 @@
+@@ -1485,7 +1807,7 @@
  function statsApply(){
    const bar = $("statsBar"), pill = $("statsPill");
    if (bar) bar.style.display = STATS_ON ? "flex" : "none";
@@ -650,7 +662,7 @@ diff --git a/stage/index.html b/stage/index.html
               pill.style.opacity = STATS_ON ? "1" : ".55"; }
  }
  
-@@ -1540,7 +1857,7 @@
+@@ -1540,7 +1862,7 @@
    const mem = s.memory || {};
    const cr = (s.credits) || {};
    const el = (id) => $(id);
@@ -659,7 +671,7 @@ diff --git a/stage/index.html b/stage/index.html
    const plain = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
    if (el("stTokens")) stSetNum("stTokens", "tokens", tk.total, "");
    if (el("stCredits")) stSetNum("stCredits", "credits", cr.spent, "");
-@@ -1556,81 +1873,97 @@
+@@ -1556,81 +1878,97 @@
  
  }
  
@@ -800,7 +812,11 @@ diff --git a/stage/index.html b/stage/index.html
    if (!STATS_ON) return;
    statsInitDrag(); statsApplyPos();
    api("/api/live/status").then(renderStats).catch(()=>{});
-@@ -1655,6 +1988,10 @@
+@@ -1652,9 +1990,14 @@
+ async function poll(){
+   try{
+     const st = await api("/api/live/status?since=" + state.since);
++    if(st.phase !== 'live' && microphone.busy)microphone.cancel();
      state.phase = st.phase;
      renderVipBadge(st);
      renderStats(st);
@@ -811,7 +827,7 @@ diff --git a/stage/index.html b/stage/index.html
      const pill = $("phasePill");
      pill.className = "pill " + (st.active ? "live" : (st.error ? "err" : ""));
      pill.textContent = st.active ? (st.mode === "managed" ? "直播中 · 托管RTC" : "直播中 · 自备RTC")
-@@ -1707,7 +2044,7 @@
+@@ -1707,7 +2050,7 @@
      fxWasActive = !!st.active;
      const vp = $("voicePill");
      vp.style.display = "";
@@ -820,7 +836,7 @@ diff --git a/stage/index.html b/stage/index.html
      if (st.transcripts_total != null && st.transcripts_total < state.since) state.since = 0;   // 桥重启过(tr_total 归零) → 游标重置, 否则新字幕全被旧游标挡掉(2026-10-13)
      if (st.new_transcripts) for (const t of st.new_transcripts){ state.since = Math.max(state.since, t.i); trAdd(t.role, t.text, t.role + ":" + t.i); }
      if (!st.active && state.liveId){
-@@ -1731,6 +2068,7 @@
+@@ -1731,11 +2074,100 @@
    showAvatarStill(true);
    $("maskCap").textContent = "已结束。点「开始连线」重新开一场。";
    $("btnGo").disabled = false;
@@ -828,7 +844,100 @@ diff --git a/stage/index.html b/stage/index.html
    $("timerPill").style.display = "none";
    leaveRtc();
  }
-@@ -2610,7 +2948,7 @@
+ 
+ /* ───────── 发送 / 打断 / 点播 ───────── */
++const microphone = {
++  token:"", stream:null, recorder:null, busy:false, cancelled:false, abort:null, timer:null, generation:0,
++  cleanup(){
++    clearTimeout(this.timer); this.timer=null;
++    if(this.stream)this.stream.getTracks().forEach(t=>t.stop());
++    this.stream=null;this.recorder=null;
++    $("btnMic").textContent="🎙 麦克风";$("btnMic").disabled=false;
++    $("btnMicCancel").hidden=true;
++  },
++  async release(token){
++    if(token)try{await api('/api/mic/cancel',{method:'POST',body:JSON.stringify({token})});}catch(_e){}
++  },
++  async cancel(){
++    this.generation++;
++    this.cancelled=true;
++    if(this.abort)this.abort.abort();
++    const token=this.token;this.token="";
++    if(this.recorder && this.recorder.state!=='inactive')this.recorder.stop();
++    this.cleanup();this.busy=false;
++    $("micStatus").textContent="录音已取消";
++    await this.release(token);
++  },
++  async start(){
++    if(this.busy)return;
++    if(!state.liveId){toast('请先开始连线',true);return;}
++    if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){toast('当前浏览器不支持录音，请使用 Chrome 或 Edge',true);return;}
++    this.busy=true;this.cancelled=false;
++    const job=++this.generation;let token="";
++    $("btnMic").disabled=true;$("btnMicCancel").hidden=false;
++    $("btnMicCancel").textContent="取消录音";
++    $("micStatus").textContent="等待当前句说完，正在准备麦克风…";
++    try{
++      const r=await api('/api/mic/begin',{method:'POST',body:'{}'});
++      token=r.token;
++      if(this.cancelled || job!==this.generation){await this.release(token);return;}
++      this.token=token;
++      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
++      if(this.cancelled || job!==this.generation){stream.getTracks().forEach(t=>t.stop());await this.release(token);return;}
++      this.stream=stream;
++      const mime=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
++      const recorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});
++      const chunks=[];this.recorder=recorder;
++      recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
++      recorder.onerror=()=>{this.cancel();toast('录音发生错误，请重新试一次',true);};
++      recorder.onstop=async()=>{
++        if(this.cancelled || job!==this.generation)return;
++        const blob=new Blob(chunks,{type:recorder.mimeType || 'audio/webm'});
++        const token=this.token;this.cleanup();$("btnMic").disabled=true;
++        $("btnMicCancel").hidden=false;$("btnMicCancel").textContent="取消";
++        $("micStatus").textContent="本地识别中，弹幕正在等待…";
++        this.abort=new AbortController();
++        try{
++          const response=await fetch('/api/mic/audio',{method:'POST',headers:{'Content-Type':blob.type,'X-Mic-Token':token},body:blob,signal:this.abort.signal});
++          const data=await response.json();
++          if(!response.ok)throw Error(data.detail || '语音识别失败');
++          if(!this.cancelled && job===this.generation)$("micStatus").textContent=data.sent?'已识别并发送：'+data.text:'没有识别到说话，请靠近麦克风再试';
++        }catch(e){
++          await this.release(token);
++          if(!this.cancelled && job===this.generation){$("micStatus").textContent=e.message || '识别失败';toast(e.message || '识别失败',true);}
++        }finally{
++          if(job===this.generation){this.abort=null;this.token="";this.busy=false;this.cleanup();}
++        }
++      };
++      recorder.start(250);
++      $("btnMic").disabled=false;$("btnMic").textContent="⏹ 结束并发送";
++      $("micStatus").textContent="正在录音 · 最长30秒 · 再点一次发送";
++      this.timer=setTimeout(()=>this.finish(),29500);
++    }catch(e){
++      await this.release(token);
++      if(job!==this.generation)return;
++      this.token="";this.busy=false;this.cleanup();
++      const message=e.name==='NotAllowedError'?'麦克风权限未允许，请在地址栏授权后重试':e.message;
++      $("micStatus").textContent=message || '录音失败';toast(message || '录音失败',true);
++    }finally{
++      if(this.cancelled && job===this.generation){this.busy=false;this.cleanup();}
++    }
++  },
++  finish(){
++    clearTimeout(this.timer);
++    if(this.recorder && this.recorder.state==='recording')this.recorder.stop();
++  },
++};
++$("btnMic").addEventListener('click',()=>microphone.recorder?.state==='recording'?microphone.finish():microphone.start());
++$("btnMicCancel").addEventListener('click',()=>microphone.cancel());
++window.addEventListener('pagehide',()=>{
++  if(microphone.token)navigator.sendBeacon('/api/mic/cancel',new Blob([JSON.stringify({token:microphone.token})],{type:'application/json'}));
++  if(microphone.stream)microphone.stream.getTracks().forEach(t=>t.stop());
++});
+ async function sendChatText(t){
+   if (!t) return false;
+   if (!state.liveId){ toast("先连线再聊", true); return false; }
+@@ -2610,7 +3042,7 @@
  $("btnVoiceRefresh").addEventListener("click", loadVoices);
  
  $("btnItt").addEventListener("click", async ()=>{
@@ -837,7 +946,7 @@ diff --git a/stage/index.html b/stage/index.html
    catch(e){ toast("打断失败: " + (e.message||e), true); }
  });
  
-@@ -2893,10 +3231,96 @@
+@@ -2893,10 +3325,96 @@
    catch(e){ toast("测试失败: " + (e.message || e), true); }
  });
  
@@ -935,7 +1044,7 @@ diff --git a/stage/index.html b/stage/index.html
      const items = d.items || [];
      sel.innerHTML = items.length
        ? items.map(p => `<option value="${p.id}" ${p.id === d.active ? "selected" : ""}>${p.name}${p.tagline ? " · " + p.tagline : ""}</option>`).join("")
-@@ -2906,57 +3330,42 @@
+@@ -2906,57 +3424,42 @@
      if (hint) hint.textContent = cur
        ? `当前：${cur.name}（${cur.chars} 字）· 目录 ${d.dir}`
        : `还没选人设 · 目录 ${d.dir || "personas/"}`;
@@ -1007,7 +1116,7 @@ diff --git a/stage/index.html b/stage/index.html
      $("s_model").value = s.model || "vidu-s2";
      $("s_rtcmode").value = (s.rtc||{}).mode || "managed";
      $("s_mprovider").value = (s.rtc||{}).managed_provider || "artc";
-@@ -2972,7 +3381,6 @@
+@@ -2972,7 +3475,6 @@
      $("s_llm_keyfile").value = (s.llm||{}).key_file || "";
      $("s_llm_temp").value = (s.llm||{}).temperature ?? 0.7;
      $("s_llm_maxtok").value = (s.llm||{}).max_tokens ?? 300;
@@ -1015,7 +1124,7 @@ diff --git a/stage/index.html b/stage/index.html
      $("s_dan_interval").value = Math.round(((s.danmaku||{}).read_interval_ms ?? 20000) / 1000);
      $("s_dan_vip_interval").value = Math.round(((s.danmaku||{}).vip_min_interval_ms ?? 5000) / 1000);
      { const st = s.stage || {};
-@@ -3005,7 +3413,7 @@
+@@ -3005,7 +3507,7 @@
      $("s_trtc_id").value = (s.rtc||{}).trtc?.sdk_app_id || "";
      $("s_trtc_key").placeholder = (s.rtc||{}).trtc?.secret_key_set ? "已配置（要改才填）" : "未配置";
    }catch(e){ toast("读取设置失败: " + (e.message||e), true); }
@@ -1024,7 +1133,7 @@ diff --git a/stage/index.html b/stage/index.html
    loadPatrons();
  }
  $("btnSave").addEventListener("click", async ()=>{
-@@ -3014,7 +3422,7 @@
+@@ -3014,7 +3516,7 @@
      avatar: {avatar_id: $("s_avatar_id").value.trim() || null},
      action: {enabled: $("s_act_en").checked,
               library_id: $("s_act_lib").value || "0"},
@@ -1033,7 +1142,7 @@ diff --git a/stage/index.html b/stage/index.html
                vip_min_interval_ms: Math.max(1, Math.round(+$("s_dan_vip_interval").value || 5)) * 1000},
      stage: {cap_overlay: $("s_cap_on").checked,
              cap_offset_px: Math.max(0, Math.round(+$("s_cap_off").value || 200)),
-@@ -3032,10 +3440,8 @@
+@@ -3032,10 +3534,8 @@
            key_file: $("s_llm_keyfile").value.trim(),
            temperature: Number($("s_llm_temp").value)||0.7,
            max_tokens: Number($("s_llm_maxtok").value)||300,
@@ -1046,7 +1155,7 @@ diff --git a/stage/index.html b/stage/index.html
      tts: {chunk_ms: Number($("s_chunk").value)||100},
      session: {greeting: $("s_greeting").value, idle_timeout_seconds: Number($("s_idle").value)||300,
                max_duration_seconds: Number($("s_maxdur").value)||1800,
-@@ -3048,6 +3454,7 @@
+@@ -3048,6 +3548,7 @@
    if (!patch.rtc.artc.app_id) delete patch.rtc.artc.app_id;
    if (!patch.rtc.trtc.sdk_app_id) delete patch.rtc.trtc.sdk_app_id;
    try{
@@ -1054,7 +1163,7 @@ diff --git a/stage/index.html b/stage/index.html
      await api("/api/settings", {method:"POST", body:JSON.stringify(patch)});
      // 画面内字幕层是纯前端渲染 → 保存后立刻用新值重画, 不用刷新(其余设置下次连线生效)
      capCfg.on = patch.stage.cap_overlay;
-@@ -3108,7 +3515,7 @@
+@@ -3108,7 +3609,7 @@
  (function stageSplit(){
    const main = $("main"), sp = $("splitter"), panel = $("rightPanel");
    if (!main || !sp || !panel) return;
@@ -1063,7 +1172,7 @@ diff --git a/stage/index.html b/stage/index.html
    let folded = false, lastW = DEF, dragging = false;
    const maxW = () => Math.min(window.innerWidth * 0.75, window.innerWidth - 320);
    function apply(w){
-@@ -3136,7 +3543,7 @@
+@@ -3136,7 +3637,7 @@
      try{ sp.setPointerCapture(e.pointerId); }catch(_){}
      main.classList.add("dragging"); e.preventDefault();
    });
@@ -1072,7 +1181,7 @@ diff --git a/stage/index.html b/stage/index.html
    sp.addEventListener("pointerup", e => {
      if (!dragging) return;
      dragging = false; main.classList.remove("dragging");
-@@ -3144,16 +3551,18 @@
+@@ -3144,16 +3645,18 @@
      save(curW()); rerender();
    });
    sp.addEventListener("dblclick", () => { const w = apply(DEF); save(w); rerender(); toast("右栏宽度已复位 " + w + "px"); });
@@ -1092,7 +1201,7 @@ diff --git a/stage/index.html b/stage/index.html
        apply(lastW);
        fb.textContent = "⤢ 全屏视频"; fb.classList.remove("on");
      }
-@@ -3293,9 +3702,13 @@
+@@ -3293,9 +3796,13 @@
  });
  loadKeys();
  

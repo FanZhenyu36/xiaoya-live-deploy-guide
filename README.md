@@ -528,3 +528,5 @@ python -m unittest discover -s tests -v
 ```
 
 问题反馈时只提供：所在步骤、窗口类型、命令、脱敏后的第一条错误、日志末尾 30–60 行。不要粘贴完整 Key、Cookie 或包含凭据的配置文件。
+
+麦克风聊天的按钮、权限、最高优先级与本地识别服务配置见 [10-microphone.md](docs/10-microphone.md)。
