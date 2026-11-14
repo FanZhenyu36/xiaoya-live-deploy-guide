@@ -14,7 +14,7 @@ diff --git a/src/engine.py b/src/engine.py
      # 代码版本标记: /api/health 会带出去 —— 用来确认"跑着的进程是不是最新代码"
      # (2026-10-09 反复出现"改了没生效"的误会: 进程内存里是启动那一刻的代码)
 -    BUILD = "2026-10-17.prefetch.v14"
-+    BUILD = "2026-11-14.audience-nick.sentence2"
++    BUILD = "2026-11-14.local-captions.v1"
  
      def __init__(self):
          self.llm = llmmod.LLMClient(lambda: (appconf.load().get("llm") or {}))
@@ -42,7 +42,24 @@ diff --git a/src/engine.py b/src/engine.py
          self._audio_last_feed = 0.0                     # 最后一次真正喂出 PCM 的时刻(看门狗用)
          # ---- 后台任务 ----
          self._pump_task: asyncio.Task | None = None
-@@ -361,6 +372,8 @@
+@@ -216,12 +227,16 @@
+     async def _out_text(self, text: str, what: str = "字幕") -> bool:
+         """发 output_transcription(type10)。连线没了/发送异常一律**返回 False, 绝不抛**
+         —— 字幕不是关键路径, 绝不能因为它把整条回复/整首歌带崩。
++        send_output_text_to_vidu=False 仅跳过云端回复文字上下文；
++        网页字幕、PCM 喂流和按句打断保持原有流程。这不是官方字幕开关。
+         `what` 只用于取证日志。"""
+         if not text:
+             return True
+         if not self._ws_ok():
+             self._trace(f"⚠ {what}未发出(连线已结束) text={text[:20]!r}")
+             return False
++        if not (appconf.load().get("session") or {}).get("send_output_text_to_vidu", True):
++            return True
+         try:
+             await self.sig.send_output_text(text)
+             return True
+@@ -361,6 +376,8 @@
              self.last_activity = time.time()
              self.phase = "live"
              self._dan_buf.clear()       # 新一场, 丢弃上一场的残留弹幕
@@ -51,7 +68,7 @@ diff --git a/src/engine.py b/src/engine.py
              self._dan_vipq.clear()
              self._dan_last_read = 0.0
              self._gift_diamonds = 0
-@@ -652,6 +665,11 @@
+@@ -652,6 +669,11 @@
          self.phase = "idle"
          print(f"[live] 会话结束({reason})", flush=True)
          self._dan_buf.clear()
@@ -63,7 +80,7 @@ diff --git a/src/engine.py b/src/engine.py
          self._dan_vipq.clear()
          self._dan_song_note = False
          self._song_epoch += 1           # 旧场次歌曲标记失效
-@@ -828,8 +846,33 @@
+@@ -828,8 +850,33 @@
  
      # ---- 喂流权唯一握手 ----
  
@@ -98,7 +115,7 @@ diff --git a/src/engine.py b/src/engine.py
          """═══ 拿唯一喂流权 ═══ 所有要喂 PCM 的任务开头必须先过这里, 保证
          任意时刻最多一个喂流者(用户拍板的硬约束; 之前各任务自管 barge-in
          在异步缝隙里会出现双喂 → 音乐断断续续/叠音)。
-@@ -842,10 +885,16 @@
+@@ -842,10 +889,16 @@
          me = asyncio.current_task()
          attempts = 0
          while True:
@@ -115,7 +132,7 @@ diff --git a/src/engine.py b/src/engine.py
                      self._audio_owner_since = time.time()
                      if self._song_playing and not wait_only and self._speak_task is not me:
                          # 歌曲在播却有人拿到喂流权 → 必然是"双喂"来源, 必须查
-@@ -854,12 +903,20 @@
+@@ -854,12 +907,20 @@
                                      f"respect_song={respect_song} wait_only={wait_only})")
                      return True
                  victim = cur
@@ -136,7 +153,7 @@ diff --git a/src/engine.py b/src/engine.py
                      return True
                  if self._song_playing:
                      self._trace("⚠ 抢占发生在歌曲播放中(要 cancel 的可能是歌)")
-@@ -930,6 +987,7 @@
+@@ -930,6 +991,7 @@
                                  pass
                              async with self._audio_gate:
                                  self._audio_owner = me
@@ -144,7 +161,7 @@ diff --git a/src/engine.py b/src/engine.py
                              return True
                          _wait_t0 = time.time()             # 歌/聊天: 再等一轮, 但每轮都打日志
                          wait_max_s = max(wait_max_s, 30.0)
-@@ -939,9 +997,15 @@
+@@ -939,9 +1001,15 @@
          """喂流结束(正常/取消/异常)释放所有权; 非持有者调用是无害 no-op。"""
          if self._audio_owner is asyncio.current_task():
              self._audio_owner = None
@@ -162,7 +179,7 @@ diff --git a/src/engine.py b/src/engine.py
          was_speaking = self._speaking_now()
          await self._cancel_speak()
          if was_speaking and self.sig and self.phase == "live":
-@@ -1071,6 +1135,8 @@
+@@ -1071,6 +1139,8 @@
          规则(用户 2026-11-01 拍板): **永不打断歌曲** —— 歌在播就等歌结束再说;
          其它情况抢断当前语音。一场只欢迎一次同一个人。
          """
@@ -171,7 +188,7 @@ diff --git a/src/engine.py b/src/engine.py
          cfg = self._patron_cfg()
          if not cfg["enabled"]:
              return {"ok": True, "skipped": "patrons_off"}
-@@ -1567,7 +1633,7 @@
+@@ -1567,7 +1637,7 @@
          self._cur_evt = evt
          queue: asyncio.Queue = asyncio.Queue(maxsize=8)
          preset = self._voice_preset()
@@ -180,7 +197,7 @@ diff --git a/src/engine.py b/src/engine.py
          pieces: list[str] = []
  
          async def synth_one(text: str) -> bytes:
-@@ -1592,7 +1658,7 @@
+@@ -1592,7 +1662,7 @@
                      nonlocal pending, got_first
                      if not pending:
                          return
@@ -189,7 +206,7 @@ diff --git a/src/engine.py b/src/engine.py
                      if not force and len("".join(pending)) < target:
                          return
                      text = "".join(pending)
-@@ -1609,7 +1675,7 @@
+@@ -1609,7 +1679,7 @@
                  async for delta in self.llm.stream(user_text):
                      if evt.is_set():
                          return
@@ -198,7 +215,7 @@ diff --git a/src/engine.py b/src/engine.py
                          if evt.is_set():
                              return
                          if not s.strip():
-@@ -1702,6 +1768,22 @@
+@@ -1702,6 +1772,22 @@
  
      async def _feed_pcm(self, pcm: bytes, evt: asyncio.Event,
                          events: list | None = None) -> bool:
@@ -221,7 +238,7 @@ diff --git a/src/engine.py b/src/engine.py
          """按实时节奏喂 PCM(48B/ms, 漂移校正); 被打断返回 False。
          events: [(at_ms, text, idx)] —— 播放进度过线就更新本机字幕状态。
          ⚠️ 用户拍板(2026-10-09): 歌词字幕不再 type10 推给 Vidu 渲染(不可靠),
-@@ -1794,7 +1876,8 @@
+@@ -1794,7 +1880,8 @@
              # 2026-10-13 用户反馈断句问题: 复读/开口不再整条一坨喂 TTS,
              # 统一走 split_for_tts(强标点即切/弱标点≥10字/硬上限30字)逐段合成。
              # 字幕仍整条一次(首段合成后立即出), 喂流逐段, 首包更快。
@@ -231,7 +248,7 @@ diff --git a/src/engine.py b/src/engine.py
              # 2026-10-17 方案B: 短句合并(第一块 first_min 字就出保开口快, 之后 merge_min 字一块)
              try:
                  _tc = appconf.load().get("tts") or {}
-@@ -1803,7 +1886,8 @@
+@@ -1803,7 +1890,8 @@
              except Exception:  # noqa: BLE001
                  _mm, _fm = 30, 14
              _raw_n = len(segs)
@@ -241,7 +258,7 @@ diff --git a/src/engine.py b/src/engine.py
              if len(segs) < _raw_n:
                  print(f"[tts] 短句合并: {_raw_n} 段 → {len(segs)} 段 (少 {_raw_n - len(segs)} 次 GPU 合成)", flush=True)
              pcm = await self.tts.synth_pcm(segs[0], self._voice_preset())
-@@ -2029,6 +2113,11 @@
+@@ -2029,6 +2117,11 @@
          return {"ok": True, "seconds": round(audio.pcm_seconds(pcm), 2)}
  
      async def interrupt(self) -> dict:
@@ -253,7 +270,7 @@ diff --git a/src/engine.py b/src/engine.py
          await self._barge_in()
          return {"ok": True}
  
-@@ -2059,9 +2148,9 @@
+@@ -2059,9 +2152,9 @@
  
      def enqueue_danmaku(self, text: str, priority: str = "normal", *,
                          answer_only: bool = False, nick: str = "",
@@ -265,7 +282,7 @@ diff --git a/src/engine.py b/src/engine.py
          answer_only=True(2026-10-10, 托盘关闭"念弹幕"时): **不复读内容**, 只把 LLM 回答
          喂给数字人; nick/content/platform 用于给 LLM 打"这是直播间弹幕"的标签。"""
          text = (text or "").strip()
-@@ -2085,6 +2174,13 @@
+@@ -2085,6 +2178,13 @@
          item = {"text": text[:120], "answer_only": bool(answer_only),
                  "nick": (nick or "")[:40], "content": (content or "")[:200],
                  "platform": (platform or "")[:20]}
@@ -279,7 +296,7 @@ diff --git a/src/engine.py b/src/engine.py
          vip = str(priority or "").lower() in ("vip", "high", "gift")
          if vip:
              while len(self._dan_vipq) >= 5:          # 送礼观众也防刷屏
-@@ -2117,6 +2213,113 @@
+@@ -2117,6 +2217,113 @@
                  "answer_only": bool(answer_only),
                  "depth": len(self._dan_vipq) + len(self._dan_buf)}
  
@@ -393,7 +410,7 @@ diff --git a/src/engine.py b/src/engine.py
      async def _llm_collect(self, text: str, record: bool = True) -> list[str]:
          """把 text 发给 LLM, 收齐完整句子后的回答。
          record=False: 不写 history —— 用于系统自发的调用(空闲搭话), 否则会污染上下文。"""
-@@ -2245,15 +2448,35 @@
+@@ -2245,15 +2452,35 @@
              return ""
          head = (f"【直播间弹幕】这一小段共 {len(lines)} 条："
                  if len(lines) > 1 else "【直播间弹幕】")
@@ -433,7 +450,7 @@ diff --git a/src/engine.py b/src/engine.py
          items = [x for x in items if (x.get("content") or x.get("text"))]
          if not items:
              return
-@@ -2310,11 +2533,14 @@
+@@ -2310,11 +2537,14 @@
              if _clean != use:
                  print(f"[speech] 台词过滤: {len(use)} 句 → {len([x for x in _clean if x])} 句", flush=True)
              use = [x for x in _clean if x]
@@ -449,7 +466,7 @@ diff --git a/src/engine.py b/src/engine.py
              if len(_merged) != len(use):
                  print(f"[tts] 弹幕回答 短句合并: {len(use)} 段 → {len(_merged)} 块", flush=True)
              use = _merged
-@@ -2349,6 +2575,8 @@
+@@ -2349,6 +2579,8 @@
                      self.tr_add("dh", s)
                      await self._out_text(s, "弹幕回答字幕")
                      self.last_activity = time.time()
@@ -458,7 +475,7 @@ diff --git a/src/engine.py b/src/engine.py
                      if not await self._feed_pcm(pcm, evt):
                          return
              finally:
-@@ -2366,6 +2594,9 @@
+@@ -2366,6 +2598,9 @@
          **歌曲优先权最高**: 歌在播时全部在 _dan_hold_gates 里排队;
          播报途中被点播新歌/用户动作抢占时, 只取消 item 任务, worker 存活 →
          歌放完(或手动停止演唱)后能自动接着播, 不依赖"下一条弹幕进来"才醒。"""
@@ -468,7 +485,7 @@ diff --git a/src/engine.py b/src/engine.py
          me = asyncio.current_task()
          print(f"[danmaku] {_ts()}worker 启动 (buf={len(self._dan_buf)} vip={len(self._dan_vipq)})",
                flush=True)
-@@ -2455,7 +2686,7 @@
+@@ -2455,7 +2690,7 @@
                      continue
                  if self._song_playing or self._chat_busy:
                      continue
@@ -477,7 +494,7 @@ diff --git a/src/engine.py b/src/engine.py
                      continue
                  if self._gift_task and not self._gift_task.done():
                      continue
-@@ -2516,8 +2747,8 @@
+@@ -2516,8 +2751,8 @@
          if not picked:
              return
          mm, fm = self._merge_chars()
@@ -488,7 +505,7 @@ diff --git a/src/engine.py b/src/engine.py
              return
          evt = asyncio.Event()
          self._cur_evt = evt
-@@ -2563,7 +2794,7 @@
+@@ -2563,7 +2798,7 @@
                  await asyncio.sleep(5)
                  if self.phase != "live":
                      continue
@@ -497,7 +514,7 @@ diff --git a/src/engine.py b/src/engine.py
                  if not waiting:
                      continue
                  owner = self._audio_owner
-@@ -2937,6 +3168,10 @@
+@@ -2937,6 +3172,10 @@
  
      async def _gift_say(self, batch: list[dict]) -> None:
          """合并播报: 生成一句话 → **先合成出音频**(趁她还在说上一句) → 等歌完/等当前说完 → 无缝插入。"""
@@ -508,7 +525,7 @@ diff --git a/src/engine.py b/src/engine.py
          cfg = self._gift_cfg()
          names: list[str] = []
          for e in batch:
-@@ -2964,7 +3199,7 @@
+@@ -2964,7 +3203,7 @@
                  await asyncio.sleep(0.4)
          if not self._ws_ok() or not pcm:
              return
@@ -517,7 +534,7 @@ diff --git a/src/engine.py b/src/engine.py
              return
          try:
              evt = asyncio.Event()
-@@ -3065,6 +3300,8 @@
+@@ -3065,6 +3304,8 @@
              },
              "dan": {"worker_alive": bool(self._dan_task is not None and not self._dan_task.done()),
                      "buf": len(self._dan_buf), "vip": len(self._dan_vipq),
