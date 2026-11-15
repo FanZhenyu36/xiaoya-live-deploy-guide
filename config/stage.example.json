@@ -65,7 +65,17 @@
       "enabled": false,
       "read_max": 0
     },
-    "answer_call_nick": true
+    "answer_call_nick": true,
+    "welcome_templates": [
+      "欢迎{nick}来到直播间，坐下来一起聊聊吧。",
+      "欢迎{nick}，很高兴在这里遇见你。",
+      "欢迎{nick}进来玩，今天过得还好吗？",
+      "欢迎{nick}，进来坐坐，陪我聊两句吧。",
+      "欢迎{nick}来到这里，忙了一天就放松一下吧。",
+      "欢迎{nick}，想聊什么都可以跟我说哦。",
+      "欢迎{nick}，进来就是朋友，不用拘谨呀。",
+      "欢迎{nick}来陪我，祝你今天有个好心情。"
+    ]
   },
   "session": {
     "finish_sentence_before_interrupt": true
