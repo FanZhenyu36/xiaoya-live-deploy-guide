@@ -28,7 +28,8 @@
     "system_prompt": "你是一位友好的中文数字人助手。自然交流，每次简短回应一到两句话。",
     "history_turns": 15,
     "max_tokens": 600,
-    "fallback_models": []
+    "fallback_models": [],
+    "broadcast_rules_enabled": true
   },
   "tts": {
     "engine": "omnivoice",

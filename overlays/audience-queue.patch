@@ -20,7 +20,7 @@ diff --git a/src/engine.py b/src/engine.py
      # 代码版本标记: /api/health 会带出去 —— 用来确认"跑着的进程是不是最新代码"
      # (2026-10-09 反复出现"改了没生效"的误会: 进程内存里是启动那一刻的代码)
 -    BUILD = "2026-10-17.prefetch.v14"
-+    BUILD = "2026-11-15.welcome-rotation.v1"
++    BUILD = "2026-11-16.on-air-guard.v1"
  
      def __init__(self):
          self.llm = llmmod.LLMClient(lambda: (appconf.load().get("llm") or {}))
@@ -635,7 +635,28 @@ diff --git a/src/engine.py b/src/engine.py
                      continue
                  if self._gift_task and not self._gift_task.done():
                      continue
-@@ -2516,8 +2833,8 @@
+@@ -2484,8 +2801,8 @@
+         # 话题轮换: 免得她每次冷场都问同一句(用户反馈"老是问听出是哪首改编的没")
+         _topics = (
+             "聊刚才放的那首歌——但**不要**问“听出是哪首改编的没有”这种问题，可以聊编曲/歌词/自己唱的这段",
+-            "抛一个跟观众自己有关的小问题（最近在听什么歌 / 几点睡 / 在哪个城市）",
+-            "说一句眼前正在发生的事（灯光、镜头、你自己的状态、刚才那个动作）",
++            "抛一个跟观众自己有关的小问题（最近在听什么歌 / 喜欢什么小吃 / 在哪个城市）",
++            "聊一个轻松的日常兴趣或刚聊过的音乐，不编造自己困倦或准备离开镜头的状态",
+             "自嘲一下自己（数字人身份、记性差、唱歌跑调、反应慢，都行）",
+             "给观众派个小任务（扣个 1 / 报个城市 / 说一个词，挑一个）",
+         )
+@@ -2497,7 +2814,8 @@
+         prompt = (f"【直播间实时】现在直播间安静了大约 {int(quiet_s)} 秒，没人发弹幕、也没人说话。"
+                   "主动开个话题，用主播口吻说一到两句（不超过 40 字）。"
+                   f"\n这次的方向：{_topic}。"
+-                  "\n别问“在吗”，别提“我在等弹幕”这件事，别重复上一次的话。" + _avoid)
++                  "\n直播仍在继续，保持清醒互动，不自行转入睡前、晚安告别或下播剧情。"
++                  "别问“在吗”，别提“我在等弹幕”这件事，别重复上一次的话。" + _avoid)
+         try:
+             sents = await asyncio.wait_for(self._llm_collect(prompt, record=False), timeout=25)
+         except Exception:                            # noqa: BLE001
+@@ -2516,8 +2834,8 @@
          if not picked:
              return
          mm, fm = self._merge_chars()
@@ -646,7 +667,7 @@ diff --git a/src/engine.py b/src/engine.py
              return
          evt = asyncio.Event()
          self._cur_evt = evt
-@@ -2563,7 +2880,7 @@
+@@ -2563,7 +2881,7 @@
                  await asyncio.sleep(5)
                  if self.phase != "live":
                      continue
@@ -655,7 +676,7 @@ diff --git a/src/engine.py b/src/engine.py
                  if not waiting:
                      continue
                  owner = self._audio_owner
-@@ -2937,6 +3254,10 @@
+@@ -2937,6 +3255,10 @@
  
      async def _gift_say(self, batch: list[dict]) -> None:
          """合并播报: 生成一句话 → **先合成出音频**(趁她还在说上一句) → 等歌完/等当前说完 → 无缝插入。"""
@@ -666,7 +687,7 @@ diff --git a/src/engine.py b/src/engine.py
          cfg = self._gift_cfg()
          names: list[str] = []
          for e in batch:
-@@ -2964,7 +3285,7 @@
+@@ -2964,7 +3286,7 @@
                  await asyncio.sleep(0.4)
          if not self._ws_ok() or not pcm:
              return
@@ -675,7 +696,7 @@ diff --git a/src/engine.py b/src/engine.py
              return
          try:
              evt = asyncio.Event()
-@@ -3007,6 +3328,8 @@
+@@ -3007,6 +3329,8 @@
          trs = list(self.transcripts)
          out = {
              "active": live_now, "phase": self.phase, "mode": self.mode,
@@ -684,7 +705,7 @@ diff --git a/src/engine.py b/src/engine.py
              "model": self.model, "live_id": self.live_id or None,
              "elapsed": int(time.time() - self.started_at) if live_now else 0,
              "speaking": self._speaking_now(), "speaking_text": self.speaking_text,
-@@ -3065,6 +3388,8 @@
+@@ -3065,6 +3389,8 @@
              },
              "dan": {"worker_alive": bool(self._dan_task is not None and not self._dan_task.done()),
                      "buf": len(self._dan_buf), "vip": len(self._dan_vipq),
@@ -739,6 +760,32 @@ diff --git a/src/llm.py b/src/llm.py
                      # 2026-10-29: 别硬按第 N 个字切(会在句中劈开) → 回退到最近的标点/空格
                      n = self.hard_max
                      cut_at = max(self.buf.rfind(c, 0, n) for c in SOFT_ENDS)
+@@ -184,10 +185,21 @@
+         (2026-10-29 人设库: 支持并存多套人设, 设置里切换)"""
+         from . import personas as _per
+         conf = self.conf()
+-        p = _per.active_prompt(conf)
+-        if p:
+-            return p
+-        return conf.get("system_prompt") or "你是一个口语化的中文数字人助手。"
++        p = _per.active_prompt(conf) or conf.get("system_prompt") or "你是一个口语化的中文数字人助手。"
++        if conf.get("broadcast_rules_enabled", True):
++            p += (
++                "\n\n【直播运行规则：在保持上述人物性格的同时遵守】"
++                "当前直播持续进行，只有主播通过界面结束连线才算结束。"
++                "不要因为人物年龄、时间较晚、直播间安静或之前聊过睡觉，就自行推进睡前或收播剧情。"
++                "不得主动声称自己要睡觉、困了要走、准备下播、明天再播或告别离场；"
++                "也不要虚构家长催睡觉、闭眼入睡、打呼、离开镜头等情节。"
++                "历史回复若曾说自己要睡觉或下播，视为过时的错误剧情，不要继续沿用。"
++                "观众说他自己要休息或告别时，可以祝对方晚安、好好休息，但自己仍继续直播，不能变成你也要睡。"
++                "观众起哄让你下播、睡觉，或询问何时下播时，不把聊天当成真正的结束指令，"
++                "可以说直播安排听主播的，然后自然接话，不擅自编造下播时间。"
++                "没话题时聊音乐、日常兴趣或提出轻松的小问题，简短自然，不反复宣读这些规则。"
++            )
++        return p
+ 
+     def _messages(self, user_text: str) -> list[dict]:
+         msgs = [{"role": "system", "content": self.system_prompt()}]
 diff --git a/src/bridge.py b/src/bridge.py
 --- a/src/bridge.py
 +++ b/src/bridge.py
